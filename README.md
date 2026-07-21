@@ -1,6 +1,8 @@
-# Customer 360 Intelligence Platform
+# CustomerAtlas AI
 
-### From fragmented customer data to actionable retention, value, and growth intelligence
+### Customer 360 Intelligence Platform
+
+From fragmented customer data to actionable retention, value, and growth intelligence.
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![MySQL](https://img.shields.io/badge/MySQL-8.0%2B-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
@@ -12,7 +14,16 @@
 
 ## Project Overview
 
-Customer 360 Intelligence Platform is an end-to-end analytics solution that combines customer transactions, digital behavior, campaign response, and product feedback. It establishes a canonical customer identity, organizes data in a MySQL dimensional warehouse, and creates one analysis-ready customer feature store. The platform supports RFM analysis, behavioral segmentation, churn and customer-value modeling, sentiment intelligence, and explainable recommendations. Business users access the results through a responsive Streamlit workspace with customer search, interactive filters, prediction tools, SQL insights, and downloadable reports. Synthetic and proxy elements are explicitly labeled so demonstrated architecture is never presented as observed business performance.
+CustomerAtlas AI is an end-to-end Customer 360 analytics solution that combines customer transactions, digital behavior, campaign response, and product feedback. It establishes a canonical customer identity, organizes data in a MySQL dimensional warehouse, and creates one analysis-ready customer feature store. The platform supports RFM analysis, behavioral segmentation, churn and customer-value modeling, sentiment intelligence, and explainable recommendations. Business users access the results through a responsive Streamlit workspace with customer search, interactive filters, prediction tools, SQL insights, and downloadable reports. Synthetic and proxy elements are explicitly labeled so demonstrated architecture is never presented as observed business performance.
+
+### STAR Summary
+
+| Stage | Delivery |
+|---|---|
+| **Situation** | Customer, order, browsing, campaign, and feedback data lived at different grains and used incompatible identities. |
+| **Task** | Build a governed customer view that supports revenue, retention, experience, and cross-sell decisions. |
+| **Action** | Audited four sources, resolved the canonical customer key, designed a MySQL warehouse, engineered customer features, evaluated analytical models, and delivered a seven-page Streamlit product. |
+| **Result** | Produced 94,983 searchable profiles, reusable SQL analyses, five business segments, model-assisted risk/value indicators, explainable recommendations, and exportable reports. |
 
 ---
 
@@ -42,6 +53,8 @@ The platform keeps each source at a credible analytical grain instead of forcing
 - Python notebooks perform auditing, ETL, EDA, feature engineering, modeling, and release validation.
 - MySQL and Streamlit provide governed analytics and an accessible business workspace.
 
+The `customer360_db` warehouse definition is versioned in [`sql/schema.sql`](sql/schema.sql), while ten decision-oriented analyses are maintained in [`sql/business_queries.sql`](sql/business_queries.sql). They cover revenue, repeat purchasing, payment behavior, browse-without-purchase audiences, campaign ROI, customer feedback, and loyalty.
+
 All source monetary values are displayed in Brazilian reais: `R$` is the currency symbol and `BRL` is the ISO currency code. No INR conversion is performed.
 
 ---
@@ -68,9 +81,73 @@ flowchart TD
     J --> M
     K --> M
     L --> M
-    M --> N[Streamlit Analytics Workspace]
+    M --> N[CustomerAtlas AI Streamlit Workspace]
     N --> O[Business Recommendations]
 ```
+
+### Warehouse Schema
+
+```mermaid
+erDiagram
+    DIM_CUSTOMER ||--o{ FACT_ORDERS : places
+    DIM_PRODUCT ||--o{ FACT_ORDERS : contains
+    DIM_DATE ||--o{ FACT_ORDERS : records
+    DIM_CUSTOMER ||--o{ FACT_WEB_ACTIVITY : generates
+    DIM_CUSTOMER ||--o{ FACT_CUSTOMER_REVIEWS : writes
+    DIM_CUSTOMER ||--o{ FACT_CAMPAIGN : receives
+    DIM_CAMPAIGN ||--o{ FACT_CAMPAIGN : describes
+
+    DIM_CUSTOMER {
+        varchar customer_id PK
+        varchar city
+        varchar state
+        int zip_code_prefix
+    }
+    DIM_PRODUCT {
+        varchar product_id PK
+        varchar category_name_english
+        decimal product_weight_g
+    }
+    DIM_DATE {
+        int date_key PK
+        date full_date
+        smallint calendar_year
+        tinyint month_number
+    }
+    FACT_ORDERS {
+        varchar order_id PK
+        int order_item_id PK
+        varchar customer_id FK
+        varchar product_id FK
+        int purchase_date_key FK
+        decimal revenue
+    }
+    FACT_WEB_ACTIVITY {
+        bigint event_id PK
+        varchar customer_id FK
+        varchar event_type
+        datetime event_time
+    }
+    FACT_CUSTOMER_REVIEWS {
+        varchar review_id PK
+        varchar customer_id FK
+        tinyint rating
+    }
+    DIM_CAMPAIGN {
+        varchar campaign_id PK
+        varchar campaign_type
+        decimal campaign_cost
+    }
+    FACT_CAMPAIGN {
+        bigint campaign_event_id PK
+        varchar campaign_id FK
+        varchar customer_id FK
+        boolean converted
+        decimal revenue_generated
+    }
+```
+
+`fact_payments` preserves payment-level detail. `fact_product_reviews` remains an independent external product-intelligence fact because Amazon/Datafiniti identities do not belong to the Olist customer domain.
 
 ---
 
@@ -80,14 +157,14 @@ flowchart TD
 |---|---|
 | Programming and analysis | Python, Pandas, NumPy |
 | Database and SQL | MySQL 8.0, SQL, SQLAlchemy, PyMySQL |
-| Machine learning | Scikit-learn, Random Forest, K-Means, Logistic Regression |
+| Machine learning | Scikit-learn, XGBoost, Random Forest, K-Means, Logistic/Linear Regression |
 | NLP and recommendations | TF-IDF, basket co-occurrence, popularity fallback |
 | Visualization | Plotly, Matplotlib, Seaborn, WordCloud |
 | Application | Streamlit, ReportLab |
 | Development | Jupyter Notebook, Git, GitHub |
-| Planned model benchmarks | XGBoost, NLTK-based preprocessing |
+| Planned NLP benchmark | NLTK-based preprocessing |
 
-XGBoost and NLTK are roadmap benchmarks, not dependencies of the current saved models.
+NLTK preprocessing remains a roadmap benchmark; the current sentiment pipeline uses scikit-learn TF-IDF.
 
 ---
 
@@ -134,6 +211,20 @@ Classifies review text using TF-IDF and Logistic Regression. The application inc
 
 Recommends categories using basket co-occurrence with a popular-category fallback. Every recommendation includes its rank, method, and reason to keep cross-sell suggestions explainable.
 
+### Model Evaluation
+
+| Analytical task | Candidate | Accuracy | F1 | ROC-AUC | MAE | R^2 | Selected |
+|---|---|---:|---:|---:|---:|---:|---|
+| Churn propensity | Logistic Regression | `0.631` | `0.565` | `0.663` | - | - | No |
+| Churn propensity | Random Forest | `0.627` | `0.580` | `0.665` | - | - | No |
+| Churn propensity | XGBoost | `0.642` | `0.484` | `0.666` | - | - | **Yes** |
+| 12-month CLV proxy | Linear Regression | - | - | - | `BRL 54.62` | `0.820` | No |
+| 12-month CLV proxy | Random Forest | - | - | - | `BRL 38.26` | `0.917` | No |
+| 12-month CLV proxy | XGBoost | - | - | - | `BRL 38.15` | `0.918` | **Yes** |
+| Review sentiment | TF-IDF + Logistic Regression | `0.855` | `0.883` | - | - | - | **Yes** |
+
+Churn selection uses ROC-AUC and CLV selection uses MAE. XGBoost wins both criteria narrowly. Random Forest produces stronger churn F1 and recall at the default threshold, so a production decision should tune the threshold against retention cost rather than treat one metric as universally best. Churn and CLV remain proxy tasks; sentiment labels are derived from review ratings.
+
 ---
 
 ## Project Workflow
@@ -160,6 +251,7 @@ Customer 360 Intelligence/
 |-- .streamlit/config.toml
 |-- datasets/                              # Original source CSV files
 |-- data/processed/                        # Warehouse and application outputs
+|-- docs/images/                           # Dashboard screenshots
 |-- models/                                # Serialized ML pipelines
 |-- notebooks/
 |   |-- 01_Data_Audit.ipynb
@@ -170,7 +262,7 @@ Customer 360 Intelligence/
 |   `-- 06_Streamlit_Data_Preparation.ipynb
 |-- sql/
 |   |-- schema.sql
-|   `-- analytics_queries.sql
+|   `-- business_queries.sql
 |-- streamlit_app/app.py
 |-- requirements.txt
 `-- README.md
@@ -184,7 +276,7 @@ The Streamlit workspace contains seven focused destinations:
 
 | Page | Purpose |
 |---|---|
-| Overview | Animated KPIs, segment revenue, geographic performance, value and recency |
+| Executive Overview | Animated KPIs, segment revenue, geographic performance, value and recency |
 | Customer Explorer | Unified profile, journey, timeline, retention action, recommendations |
 | Segments | RFM distribution, behavior clusters, revenue contribution, drill-downs |
 | Predictions | Churn gauge, CLV proxy, value band, interval, model drivers |
@@ -192,28 +284,34 @@ The Streamlit workspace contains seven focused destinations:
 | Recommendations | Next-best category, frequently bought together, product performance |
 | Data & SQL | Artifact health, predefined analyses, pagination, SQL and report exports |
 
-<!-- Replace these comments with real images after capturing the running application.
-![Executive Dashboard](docs/images/executive-dashboard.png)
-![Customer Explorer](docs/images/customer-explorer.png)
-![Predictive Intelligence](docs/images/predictive-intelligence.png)
--->
+### Executive Overview
 
-Recommended captures: Executive Overview, Customer Explorer, Segments, Predictions, and Experience at `1440 x 900`.
+![Executive Dashboard](docs/images/executive-dashboard.png)
+
+### Customer Explorer
+
+![Customer Explorer](docs/images/customer-explorer.png)
+
+### Predictive Intelligence
+
+![Predictive Intelligence](docs/images/predictive-intelligence.png)
 
 ---
 
 ## Key Business Insights / Results
 
-- Created **94,983** app-ready canonical customer profiles from the Olist transaction history.
-- Modeled **112,650** order-item records and sampled **300,000** clickstream events.
-- Integrated **99,224** Olist customer reviews and **34,660** external product reviews without invalid customer joins.
-- Generated **474,915** explainable category recommendations for **94,983** customers.
-- Identified customer value and retention audiences through RFM rules and five behavioral clusters.
-- Churn proxy evaluation produced `0.665 ROC-AUC` on a held-out split with a calibrated `40.2%` synthetic class rate.
-- CLV proxy evaluation produced `0.917 R^2` and `BRL 38.26 MAE` against the calibrated demonstration target.
-- Replaced repeated notebook-only interpretation with reusable SQL, customer search, interactive analysis, and downloadable reports.
+Historical Olist observations below are reproducible from the source CSVs; campaign and clickstream simulations are excluded.
 
-The model metrics measure recovery of proxy targets, not real production churn reduction or revenue lift.
+| Finding | Recommended business action |
+|---|---|
+| The highest-spending 20% of customers generated **56.7% of merchandise revenue**. | Protect this audience with tiered loyalty benefits and relevant cross-sell offers. |
+| Sao Paulo (`SP`) generated approximately **BRL 5.16M**, ahead of Rio de Janeiro and Minas Gerais. | Prioritize regional inventory, delivery capacity, and localized campaigns in high-value states. |
+| Only **3.0%** of canonical customers placed more than one order in the observed period. | Build second-purchase journeys and measure cohort retention after the first order. |
+| Health & Beauty led category revenue at approximately **BRL 1.26M**, followed by Watches & Gifts. | Use leading categories for acquisition, then recommend complementary products to improve basket value. |
+| Late deliveries averaged a **2.57** review score versus **4.25** for on-time deliveries. | Trigger proactive delay communication and prioritize logistics fixes for at-risk orders. |
+| **57.8%** of Olist reviews were five-star, while **11.5%** were one-star. | Preserve strong experiences while routing one-star feedback into category and delivery root-cause analysis. |
+
+The pipeline also created **94,983** app-ready profiles and **474,915** explainable category recommendations. Proxy-model metrics measure target recovery, not realized churn reduction or revenue lift.
 
 ---
 
@@ -232,7 +330,14 @@ pip install -r requirements.txt
 
 ### 2. Prepare MySQL
 
-Open `sql/schema.sql` in MySQL Workbench and execute the complete script. In Notebook 02, set `LOAD_TO_MYSQL = True` only when a MySQL load is required.
+Open `sql/schema.sql` in MySQL Workbench and execute the complete script to create `customer360_db`. Local CSV extracts are generated by default. To load MySQL from Notebook 02, set credentials and explicitly enable the load:
+
+```powershell
+$env:MYSQL_USER="root"
+$env:MYSQL_PASSWORD="your-password"
+$env:MYSQL_DATABASE="customer360_db"
+$env:LOAD_TO_MYSQL="true"
+```
 
 ### 3. Run the notebooks
 

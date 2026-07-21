@@ -1,5 +1,5 @@
 -- Customer 360 business questions for MySQL 8.0+
-USE customer360;
+USE customer360_db;
 
 -- 1. Which states generate the most merchandise revenue?
 SELECT

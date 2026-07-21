@@ -30,7 +30,7 @@ MODEL_COLUMNS = [
     "customer_age_days",
 ]
 NAV_ITEMS = [
-    ("Overview", ":material/space_dashboard:"),
+    ("Executive Overview", ":material/space_dashboard:"),
     ("Customer Explorer", ":material/person_search:"),
     ("Segments", ":material/donut_large:"),
     ("Predictions", ":material/query_stats:"),
@@ -39,7 +39,7 @@ NAV_ITEMS = [
     ("Data & SQL", ":material/database:"),
 ]
 PAGE_COPY = {
-    "Overview": ("Customer 360 Intelligence Platform", "Revenue, retention, and customer value at a glance."),
+    "Executive Overview": ("Executive overview", "Revenue, retention, and customer value at a glance."),
     "Customer Explorer": ("Customer explorer", "Find one customer and see the complete commercial story."),
     "Segments": ("Customer segments", "Compare audiences and identify where to focus next."),
     "Predictions": ("Predictive intelligence", "Explore calibrated churn and forward-value scenarios."),
@@ -48,7 +48,7 @@ PAGE_COPY = {
     "Data & SQL": ("Data and SQL", "Understand the sources, limitations, and reusable query library."),
 }
 PAGE_GUIDE = {
-    "Overview": ["Track commercial health", "Find valuable audiences", "Spot retention pressure"],
+    "Executive Overview": ["Track commercial health", "Find valuable audiences", "Spot retention pressure"],
     "Customer Explorer": ["Search a unified profile", "Review engagement and history", "Choose the next action"],
     "Segments": ["Compare RFM audiences", "Measure revenue contribution", "Drill into behavior clusters"],
     "Predictions": ["Estimate churn propensity", "Model forward customer value", "Understand global model drivers"],
@@ -58,8 +58,8 @@ PAGE_GUIDE = {
 }
 
 st.set_page_config(
-    page_title="Customer 360 Intelligence",
-    page_icon="C360",
+    page_title="CustomerAtlas AI | Customer 360 Intelligence",
+    page_icon=":material/hub:",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -144,7 +144,7 @@ def page_header(page: str) -> None:
         f"""
         <div class="page-head">
           <div class="page-title-block">
-            <p class="eyebrow">CUSTOMER 360 INTELLIGENCE</p>
+            <p class="eyebrow">CUSTOMERATLAS AI / CUSTOMER 360 INTELLIGENCE</p>
             <h1>{title}</h1>
             <p>{description}</p>
           </div>
@@ -292,7 +292,7 @@ def build_profile_pdf(profile: pd.Series) -> bytes:
         ("PADDING", (0, 0), (-1, -1), 7),
     ]))
     document.build([
-        Paragraph("Customer 360 Intelligence Platform", styles["Title"]),
+        Paragraph("CustomerAtlas AI - Customer 360 Profile", styles["Title"]),
         Paragraph("Unified customer profile report", styles["Heading2"]),
         Spacer(1, 12),
         table,
@@ -601,6 +601,7 @@ segment_summary = load_csv("segment_summary.csv")
 sentiment = load_csv("product_sentiment.csv")
 recommendations = load_csv("recommendations.csv")
 feature_importance = load_csv("model_feature_importance.csv")
+model_evaluation = load_csv("model_evaluation.csv")
 fact_orders = load_csv("fact_orders.csv", ("purchase_date",))
 fact_campaign = load_csv("fact_campaign.csv")
 dim_campaign = load_csv("dim_campaign.csv")
@@ -611,11 +612,11 @@ if not product_reviews.empty:
 require_release_data(customer_features)
 
 if "active_page" not in st.session_state:
-    st.session_state.active_page = "Overview"
+    st.session_state.active_page = "Executive Overview"
 
 with st.sidebar:
     st.markdown(
-        '<div class="brand-lockup"><div class="brand-mark"><b></b><b></b><b></b><b></b></div><div class="brand-copy"><strong>Customer 360</strong><span>Intelligence Platform</span></div></div>',
+        '<div class="brand-lockup"><div class="brand-mark"><b></b><b></b><b></b><b></b></div><div class="brand-copy"><strong>CustomerAtlas AI</strong><span>Customer 360 Intelligence</span></div></div>',
         unsafe_allow_html=True,
     )
     st.markdown('<p class="nav-label">WORKSPACE</p>', unsafe_allow_html=True)
@@ -668,7 +669,7 @@ if filtered.empty:
     st.stop()
 
 
-if page == "Overview":
+if page == "Executive Overview":
     total_customers = filtered["customer_id"].nunique()
     total_revenue = filtered["total_spend"].sum()
     total_orders = filtered["total_orders"].sum()
@@ -949,14 +950,17 @@ elif page == "Predictions":
             elif submitted:
                 input_frame = model_input_frame(recency, frequency, monetary, aov, products, age)
                 value = max(float(clv_model.predict(input_frame)[0]), 0)
-                tree_values = np.array([tree.predict(input_frame.to_numpy())[0] for tree in clv_model.estimators_])
-                interval_low, interval_high = np.percentile(tree_values, [10, 90])
+                if hasattr(clv_model, "estimators_"):
+                    tree_values = np.array([tree.predict(input_frame.to_numpy())[0] for tree in clv_model.estimators_])
+                    interval_low, interval_high = np.percentile(tree_values, [10, 90])
+                else:
+                    interval_low, interval_high = value * 0.85, value * 1.15
                 q25, q50, q75 = filtered["predicted_clv"].quantile([0.25, 0.50, 0.75])
                 value_band = "Platinum" if value >= q75 else "Gold" if value >= q50 else "Silver" if value >= q25 else "Bronze"
                 result_cols = st.columns(3)
                 result_cols[0].metric("12-month CLV proxy", format_brl(value))
                 result_cols[1].metric("Value band", value_band)
-                result_cols[2].metric("Model interval", f"{format_brl(interval_low)} - {format_brl(interval_high)}")
+                result_cols[2].metric("Planning range", f"{format_brl(interval_low)} - {format_brl(interval_high)}")
                 recommendation = "Prioritize loyalty recognition and premium cross-sell." if value_band in {"Platinum", "Gold"} else "Build purchase frequency with a relevant next-best-category offer."
                 st.info(recommendation)
                 st.toast("Customer value estimate is ready", icon=":material/check_circle:")
@@ -968,6 +972,23 @@ elif page == "Predictions":
             figure.update_xaxes(title="12-month CLV proxy (BRL)")
             figure.update_yaxes(title="Customers")
             chart(figure, 300)
+
+    section_intro("Model evaluation", "Held-out results from Notebook 05; proxy targets are not production outcomes.")
+    if model_evaluation.empty:
+        st.info("Run Notebook 05 to generate the model comparison table.")
+    else:
+        display_columns = [
+            column for column in ["task", "model", "selected", "accuracy", "precision", "recall", "f1", "roc_auc", "mae", "r2"]
+            if column in model_evaluation.columns
+        ]
+        st.dataframe(model_evaluation[display_columns], width="stretch", hide_index=True, height=245)
+        st.download_button(
+            "Download model evaluation",
+            model_evaluation.to_csv(index=False).encode("utf-8"),
+            "model_evaluation.csv",
+            "text/csv",
+            icon=":material/download:",
+        )
 
 elif page == "Experience":
     sentiment_tab, marketing_tab = st.tabs(["Review intelligence", "Campaign performance"])
@@ -1142,6 +1163,7 @@ elif page == "Data & SQL":
             {"Artifact": "Recommendations", "Rows": len(recommendations), "Status": "Ready" if not recommendations.empty else "Missing"},
             {"Artifact": "Sentiment summary", "Rows": len(sentiment), "Status": "Ready" if not sentiment.empty else "Missing"},
             {"Artifact": "Transactions", "Rows": len(fact_orders), "Status": "Ready" if not fact_orders.empty else "Missing"},
+            {"Artifact": "Model evaluation", "Rows": len(model_evaluation), "Status": "Ready" if not model_evaluation.empty else "Missing"},
         ])
         st.dataframe(artifact_status, width="stretch", hide_index=True, height=205)
     with right:
@@ -1196,11 +1218,11 @@ elif page == "Data & SQL":
         "recommendations.csv", "text/csv", icon=":material/download:", width="stretch",
     )
 
-    query_path = ROOT / "sql" / "analytics_queries.sql"
+    query_path = ROOT / "sql" / "business_queries.sql"
     with st.expander("Open SQL business-query library", icon=":material/code:"):
         if query_path.exists():
             sql_text = query_path.read_text(encoding="utf-8")
             st.code(sql_text, language="sql")
-            st.download_button("Download SQL", sql_text.encode("utf-8"), "analytics_queries.sql", "text/sql", icon=":material/download:")
+            st.download_button("Download SQL", sql_text.encode("utf-8"), "business_queries.sql", "text/sql", icon=":material/download:")
         else:
-            st.error("sql/analytics_queries.sql was not found.")
+            st.error("sql/business_queries.sql was not found.")

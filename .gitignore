@@ -3,6 +3,7 @@
 __pycache__/
 *.py[cod]
 .env
+*.log
 
 # Generated data and model artifacts
 data/processed/*.csv

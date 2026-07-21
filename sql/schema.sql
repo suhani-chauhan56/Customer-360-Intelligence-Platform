@@ -1,10 +1,10 @@
 -- Customer 360 Intelligence Platform
 -- MySQL 8.0+ warehouse schema. Running this file rebuilds the project tables.
 
-CREATE DATABASE IF NOT EXISTS customer360
+CREATE DATABASE IF NOT EXISTS customer360_db
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
-USE customer360;
+USE customer360_db;
 
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS fact_campaign;

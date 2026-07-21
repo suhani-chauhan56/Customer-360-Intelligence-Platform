@@ -1,16 +1,15 @@
 .venv/
 .ipynb_checkpoints/
 __pycache__/
+.pytest_cache/
 *.py[cod]
 .env
 *.log
 
-# Generated data and model artifacts
+# Local source data, generated extracts, and model artifacts
+data/raw/*.csv
 data/processed/*.csv
 models/*.pkl
 
 # Local notebook and app state
 .streamlit/secrets.toml
-
-datasets/2019-Dec.csv
-datasets/olist_geolocation_dataset.csv

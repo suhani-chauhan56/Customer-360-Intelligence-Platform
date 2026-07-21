@@ -597,18 +597,6 @@ def live_system_status() -> None:
 add_css()
 
 customer_features = load_csv("customer_360_features.csv", ("first_purchase_date", "last_purchase_date"))
-segment_summary = load_csv("segment_summary.csv")
-sentiment = load_csv("product_sentiment.csv")
-recommendations = load_csv("recommendations.csv")
-feature_importance = load_csv("model_feature_importance.csv")
-model_evaluation = load_csv("model_evaluation.csv")
-fact_orders = load_csv("fact_orders.csv", ("purchase_date",))
-fact_campaign = load_csv("fact_campaign.csv")
-dim_campaign = load_csv("dim_campaign.csv")
-product_reviews = load_csv("fact_product_reviews.csv", ("review_date",))
-dim_product = load_csv("dim_product.csv")
-if not product_reviews.empty:
-    product_reviews["review_date"] = pd.to_datetime(product_reviews["review_date"], errors="coerce", format="mixed")
 require_release_data(customer_features)
 
 if "active_page" not in st.session_state:
@@ -652,6 +640,48 @@ with st.sidebar:
 
 page = st.session_state.active_page
 apply_dark_theme(st.session_state.dark_mode)
+
+# Large extracts are loaded only for pages that use them. This keeps the
+# executive dashboard responsive without removing any analytical detail.
+segment_summary = pd.DataFrame()
+sentiment = pd.DataFrame()
+recommendations = pd.DataFrame()
+feature_importance = pd.DataFrame()
+model_evaluation = pd.DataFrame()
+fact_orders = pd.DataFrame()
+fact_campaign = pd.DataFrame()
+dim_campaign = pd.DataFrame()
+product_reviews = pd.DataFrame()
+dim_product = pd.DataFrame()
+
+if page == "Customer Explorer":
+    fact_orders = load_csv("fact_orders.csv", ("purchase_date",))
+    recommendations = load_csv("recommendations.csv")
+elif page == "Segments":
+    segment_summary = load_csv("segment_summary.csv")
+elif page == "Predictions":
+    feature_importance = load_csv("model_feature_importance.csv")
+    model_evaluation = load_csv("model_evaluation.csv")
+elif page == "Experience":
+    sentiment = load_csv("product_sentiment.csv")
+    product_reviews = load_csv("fact_product_reviews.csv", ("review_date",))
+    fact_campaign = load_csv("fact_campaign.csv")
+    dim_campaign = load_csv("dim_campaign.csv")
+elif page == "Recommendations":
+    recommendations = load_csv("recommendations.csv")
+    fact_orders = load_csv("fact_orders.csv", ("purchase_date",))
+    dim_product = load_csv("dim_product.csv")
+    sentiment = load_csv("product_sentiment.csv")
+elif page == "Data & SQL":
+    segment_summary = load_csv("segment_summary.csv")
+    sentiment = load_csv("product_sentiment.csv")
+    recommendations = load_csv("recommendations.csv")
+    model_evaluation = load_csv("model_evaluation.csv")
+    fact_orders = load_csv("fact_orders.csv", ("purchase_date",))
+
+if not product_reviews.empty:
+    product_reviews["review_date"] = pd.to_datetime(product_reviews["review_date"], errors="coerce", format="mixed")
+
 filtered = customer_features.copy()
 if selected_segment != "All":
     filtered = filtered.loc[filtered["rfm_segment"].astype(str).eq(selected_segment)]

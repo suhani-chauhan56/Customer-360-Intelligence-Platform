@@ -1,6 +1,4 @@
-# CustomerAtlas AI
-
-## Customer 360 Intelligence Platform
+# Customer 360 Intelligence Platform
 
 > Unifying transactions, digital behavior, campaign response, and customer feedback into actionable retention and growth intelligence.
 

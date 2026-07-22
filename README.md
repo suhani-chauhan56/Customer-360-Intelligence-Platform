@@ -382,4 +382,4 @@ Open `http://localhost:8501`. If that port is occupied, add `--server.port 8502`
 Data Analyst | Customer Analytics | SQL | Python | Machine Learning
 
 - [GitHub](https://github.com/suhani-chauhan56)
-- [LinkedIn](https://www.linkedin.com/in/suhani-chauhan-)
+- [LinkedIn](https://www.linkedin.com/in/suhani-chauhan-39055832a)

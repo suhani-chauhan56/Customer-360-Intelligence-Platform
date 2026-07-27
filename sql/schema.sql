@@ -1,22 +1,32 @@
 -- Customer 360 Intelligence Platform
 -- MySQL 8.0+ warehouse schema. Running this file rebuilds the project tables.
 
-CREATE DATABASE IF NOT EXISTS customer360_db
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS customer360_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 USE customer360_db;
 
 SET FOREIGN_KEY_CHECKS = 0;
+
 DROP TABLE IF EXISTS fact_campaign;
+
 DROP TABLE IF EXISTS fact_product_reviews;
+
 DROP TABLE IF EXISTS fact_customer_reviews;
+
 DROP TABLE IF EXISTS fact_web_activity;
+
 DROP TABLE IF EXISTS fact_payments;
+
 DROP TABLE IF EXISTS fact_orders;
+
 DROP TABLE IF EXISTS dim_campaign;
+
 DROP TABLE IF EXISTS dim_date;
+
 DROP TABLE IF EXISTS dim_product;
+
 DROP TABLE IF EXISTS dim_customer;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- One row per Olist customer_unique_id. This is the canonical Customer 360 key.
@@ -27,7 +37,7 @@ CREATE TABLE dim_customer (
     zip_code_prefix INT,
     source_customer_count INT NOT NULL DEFAULT 1,
     INDEX idx_customer_state_city (state, city)
-) ENGINE=InnoDB;
+) ENGINE = InnoDB;
 
 CREATE TABLE dim_product (
     product_id VARCHAR(100) PRIMARY KEY,
@@ -38,7 +48,7 @@ CREATE TABLE dim_product (
     product_height_cm DECIMAL(12, 2),
     product_width_cm DECIMAL(12, 2),
     INDEX idx_product_category (category_name_english)
-) ENGINE=InnoDB;
+) ENGINE = InnoDB;
 
 CREATE TABLE dim_date (
     date_key INT PRIMARY KEY,
@@ -51,7 +61,7 @@ CREATE TABLE dim_date (
     day_of_month TINYINT NOT NULL,
     day_name VARCHAR(12) NOT NULL,
     is_weekend TINYINT(1) NOT NULL
-) ENGINE=InnoDB;
+) ENGINE = InnoDB;
 
 -- One row per Olist order item. Revenue excludes freight; gross_value includes it.
 CREATE TABLE fact_orders (
@@ -74,10 +84,10 @@ CREATE TABLE fact_orders (
     PRIMARY KEY (order_id, order_item_id),
     INDEX idx_orders_customer_date (customer_id, purchase_date),
     INDEX idx_orders_product (product_id),
-    CONSTRAINT fk_orders_customer FOREIGN KEY (customer_id) REFERENCES dim_customer(customer_id),
-    CONSTRAINT fk_orders_product FOREIGN KEY (product_id) REFERENCES dim_product(product_id),
-    CONSTRAINT fk_orders_date FOREIGN KEY (purchase_date_key) REFERENCES dim_date(date_key)
-) ENGINE=InnoDB;
+    CONSTRAINT fk_orders_customer FOREIGN KEY (customer_id) REFERENCES dim_customer (customer_id),
+    CONSTRAINT fk_orders_product FOREIGN KEY (product_id) REFERENCES dim_product (product_id),
+    CONSTRAINT fk_orders_date FOREIGN KEY (purchase_date_key) REFERENCES dim_date (date_key)
+) ENGINE = InnoDB;
 
 CREATE TABLE fact_payments (
     order_id VARCHAR(100) NOT NULL,
@@ -87,7 +97,7 @@ CREATE TABLE fact_payments (
     payment_value DECIMAL(12, 2),
     PRIMARY KEY (order_id, payment_sequential),
     INDEX idx_payments_type (payment_type)
-) ENGINE=InnoDB;
+) ENGINE = InnoDB;
 
 -- Simulated identity links are clearly marked and are used only for behavior features.
 CREATE TABLE fact_web_activity (
@@ -104,8 +114,8 @@ CREATE TABLE fact_web_activity (
     identity_link_is_simulated TINYINT(1) NOT NULL DEFAULT 1,
     INDEX idx_web_customer_time (customer_id, event_time),
     INDEX idx_web_event_type (event_type),
-    CONSTRAINT fk_web_customer FOREIGN KEY (customer_id) REFERENCES dim_customer(customer_id)
-) ENGINE=InnoDB;
+    CONSTRAINT fk_web_customer FOREIGN KEY (customer_id) REFERENCES dim_customer (customer_id)
+) ENGINE = InnoDB;
 
 -- Olist feedback can be connected to the canonical Olist customer through order_id.
 CREATE TABLE fact_customer_reviews (
@@ -118,8 +128,8 @@ CREATE TABLE fact_customer_reviews (
     review_text TEXT,
     PRIMARY KEY (review_id, order_id),
     INDEX idx_customer_reviews_customer (customer_id),
-    CONSTRAINT fk_customer_reviews_customer FOREIGN KEY (customer_id) REFERENCES dim_customer(customer_id)
-) ENGINE=InnoDB;
+    CONSTRAINT fk_customer_reviews_customer FOREIGN KEY (customer_id) REFERENCES dim_customer (customer_id)
+) ENGINE = InnoDB;
 
 -- Datafiniti/Amazon is a separate product-intelligence source, never a customer join.
 CREATE TABLE fact_product_reviews (
@@ -133,14 +143,14 @@ CREATE TABLE fact_product_reviews (
     sentiment_label VARCHAR(30),
     sentiment_score DECIMAL(6, 4),
     INDEX idx_product_reviews_category (category_name)
-) ENGINE=InnoDB;
+) ENGINE = InnoDB;
 
 CREATE TABLE dim_campaign (
     campaign_id VARCHAR(50) PRIMARY KEY,
     campaign_type VARCHAR(50) NOT NULL,
     campaign_start_date DATE NOT NULL,
     campaign_cost DECIMAL(14, 2) NOT NULL
-) ENGINE=InnoDB;
+) ENGINE = InnoDB;
 
 CREATE TABLE fact_campaign (
     campaign_event_id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -155,6 +165,10 @@ CREATE TABLE fact_campaign (
     is_synthetic TINYINT(1) NOT NULL DEFAULT 1,
     INDEX idx_campaign_customer (customer_id),
     INDEX idx_campaign_id (campaign_id),
-    CONSTRAINT fk_campaign_customer FOREIGN KEY (customer_id) REFERENCES dim_customer(customer_id),
-    CONSTRAINT fk_campaign_dimension FOREIGN KEY (campaign_id) REFERENCES dim_campaign(campaign_id)
-) ENGINE=InnoDB;
+    CONSTRAINT fk_campaign_customer FOREIGN KEY (customer_id) REFERENCES dim_customer (customer_id),
+    CONSTRAINT fk_campaign_dimension FOREIGN KEY (campaign_id) REFERENCES dim_campaign (campaign_id)
+) ENGINE = InnoDB;
+
+USE customer360_db;
+
+SHOW TABLES

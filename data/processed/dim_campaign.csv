@@ -1,0 +1,9 @@
+campaign_id,campaign_type,campaign_start_date,campaign_cost
+CAMP_001,Email,2018-01-01,33478.0
+CAMP_002,SMS,2018-01-31,98525.0
+CAMP_003,Coupon,2018-03-02,87184.0
+CAMP_004,Loyalty,2018-04-01,66693.0
+CAMP_005,Retargeting,2018-05-01,66136.0
+CAMP_006,Referral,2018-05-31,106566.0
+CAMP_007,Winback,2018-06-30,33164.0
+CAMP_008,Seasonal,2018-07-30,91249.0

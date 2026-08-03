@@ -90,6 +90,8 @@ def chart(figure, height: int = 300, legend: str = "bottom") -> None:
     dark_mode = st.session_state.get("dark_mode", False)
     text_color = "#dce7eb" if dark_mode else "#263942"
     title_color = "#f5f8f9" if dark_mode else "#162a33"
+    hover_bg = "#203943" if dark_mode else "#ffffff"
+    hover_text = "#f5f8f9" if dark_mode else "#162a33"
     has_multi_item_legend = len(figure.data) > 1 or any(
         getattr(trace, "type", "") in {"pie", "funnelarea"} for trace in figure.data
     )
@@ -132,7 +134,7 @@ def chart(figure, height: int = 300, legend: str = "bottom") -> None:
         showlegend=show_legend,
         legend_title_text="",
         legend=legend_layout,
-        hoverlabel=dict(bgcolor="white", font_size=12),
+        hoverlabel=dict(bgcolor=hover_bg, font_color=hover_text, bordercolor=text_color, font_size=12),
     )
     st.plotly_chart(figure, width="stretch", config=PLOT_CONFIG)
 
@@ -373,13 +375,19 @@ def add_css() -> None:
             --line: #dbe4e7;
             --canvas: #f5f7f8;
             --surface: #ffffff;
+            --surface-muted: #edf5f4;
+            --control-bg: #ffffff;
+            --control-text: #1b3039;
+            --control-placeholder: #6b7d85;
+            --warning-bg: #fff9ed;
+            --warning-text: #6e5627;
             --teal: #117a72;
             --coral: #c45849;
             --amber: #aa741e;
             --green: #247a52;
         }
         .stApp { background: var(--canvas); }
-        .main .block-container { max-width: 1420px; padding: .55rem 1.6rem 2.5rem; }
+        [data-testid="stMainBlockContainer"] { max-width: 1420px; padding: .55rem 1.6rem 2.5rem; }
         header[data-testid="stHeader"] { height: 0; background: transparent; }
         div[data-testid="stToolbar"] { visibility: hidden; height: 0; }
         div[data-testid="stDecoration"] { display: none; }
@@ -440,6 +448,10 @@ def add_css() -> None:
             color: #105e59;
             border-color: #b7d8d3;
         }
+        section[data-testid="stSidebar"] div[data-testid="stButton"] button p,
+        section[data-testid="stSidebar"] div[data-testid="stButton"] button span {
+            color: inherit !important;
+        }
         .brand-lockup {
             display: flex; align-items: center; gap: 12px; margin: 2px 3px 18px; padding: 13px 11px;
             border: 1px solid #34515d; border-radius: 6px; background: #193541; position: relative; overflow: hidden;
@@ -491,7 +503,7 @@ def add_css() -> None:
         .flow-line span { display: block; width: 24%; height: 100%; background: #31a99e; animation: data-flow 2.4s ease-in-out infinite; }
         .page-guide {
             display: flex; align-items: center; gap: 14px; margin: -5px 0 14px;
-            padding: 8px 10px; background: #edf5f4; border-left: 3px solid var(--teal);
+            padding: 8px 10px; background: var(--surface-muted); border-left: 3px solid var(--teal);
             color: #4e626b; font-size: 11px;
         }
         .page-guide strong { color: var(--ink); white-space: nowrap; }
@@ -503,13 +515,13 @@ def add_css() -> None:
             display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 14px;
         }
         .insight {
-            background: #fff; border-left: 3px solid var(--teal); padding: 9px 11px;
-            color: #52666f; font-size: 12px; min-height: 50px;
+            background: var(--surface); border-left: 3px solid var(--teal); padding: 9px 11px;
+            color: var(--muted); font-size: 12px; min-height: 50px;
         }
         .insight strong { display: block; color: var(--ink); font-size: 13px; margin-bottom: 2px; }
-        .proxy-note { border-left: 3px solid var(--amber); background: #fff9ed; padding: 9px 11px; color: #6e5627; font-size: 12px; margin-bottom: 12px; }
+        .proxy-note { border-left: 3px solid var(--amber); background: var(--warning-bg); padding: 9px 11px; color: var(--warning-text); font-size: 12px; margin-bottom: 12px; }
         .recommendation-item {
-            background: #fff; border: 1px solid var(--line); border-radius: 5px; padding: 12px;
+            background: var(--surface); border: 1px solid var(--line); border-radius: 5px; padding: 12px;
             min-height: 92px; transition: transform .18s ease, box-shadow .18s ease;
         }
         .recommendation-item:hover { transform: translateY(-2px); box-shadow: 0 7px 18px rgba(24, 51, 62, .08); }
@@ -529,10 +541,10 @@ def add_css() -> None:
         div[data-testid="stMetric"]:nth-of-type(2) { animation-delay: .04s; }
         div[data-testid="stMetric"]:nth-of-type(3) { animation-delay: .08s; }
         div[data-testid="stDataFrame"] { border: 1px solid var(--line); border-radius: 5px; }
-        div[data-testid="stPlotlyChart"] { background: #fff; border: 1px solid var(--line); border-radius: 5px; }
-        div[data-testid="stExpander"] { background: #fff; border-color: var(--line); border-radius: 5px; }
-        div[data-testid="stForm"] { background: #fff; border: 1px solid var(--line); border-radius: 5px; padding: 14px; }
-        button[kind="primaryFormSubmit"], .main button[kind="primary"] { background: var(--teal); border-color: var(--teal); }
+        div[data-testid="stPlotlyChart"] { background: var(--surface); border: 1px solid var(--line); border-radius: 5px; }
+        div[data-testid="stExpander"] { background: var(--surface); border-color: var(--line); border-radius: 5px; }
+        div[data-testid="stForm"] { background: var(--surface); border: 1px solid var(--line); border-radius: 5px; padding: 14px; }
+        button[kind="primaryFormSubmit"], [data-testid="stMain"] button[kind="primary"] { background: var(--teal); border-color: var(--teal); }
 
         @keyframes slide-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
         @keyframes metric-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
@@ -546,7 +558,7 @@ def add_css() -> None:
             button[data-testid="stSidebarCollapseButton"] { display: none; }
         }
         @media (max-width: 768px) {
-            .main .block-container { padding: 1rem; }
+            [data-testid="stMainBlockContainer"] { padding: 1rem; }
             .page-head { align-items: flex-start; flex-direction: column; }
             .page-head h1 { font-size: 24px; }
             .head-aside { width: 100%; justify-content: space-between; }
@@ -569,20 +581,71 @@ def apply_dark_theme(enabled: bool) -> None:
         <style>
         :root {
             --ink: #eff5f6;
-            --muted: #a9bbc2;
-            --line: #34505c;
-            --canvas: #10212a;
+            --muted: #b8c8ce;
+            --line: #42606b;
+            --canvas: #0d1d24;
             --surface: #172d37;
+            --surface-muted: #19373d;
+            --control-bg: #203943;
+            --control-text: #f3f7f8;
+            --control-placeholder: #b4c5cb;
+            --warning-bg: #3a3020;
+            --warning-text: #f0d79f;
         }
-        .stApp { background: var(--canvas); color: #e6eef1; }
-        .page-head, .page-head h1, .section-title h2 { color: var(--ink); }
-        .status, .insight, .recommendation-item,
-        div[data-testid="stMetric"], div[data-testid="stPlotlyChart"],
-        div[data-testid="stExpander"], div[data-testid="stForm"] { background: var(--surface); }
-        .status, .insight, .recommendation-item p, .page-guide { color: #b7c7cd; }
-        .page-guide { background: #17343a; }
-        .proxy-note { background: #3a3020; color: #e4ca92; }
-        div[data-testid="stMetricValue"], .recommendation-item strong { color: #f5f8f9; }
+        .stApp { background: var(--canvas); color: var(--ink); }
+        [data-testid="stMain"] p, [data-testid="stMain"] li, [data-testid="stMain"] label,
+        [data-testid="stMain"] [data-testid="stCaptionContainer"] p { color: var(--ink); }
+        [data-testid="stMain"] [data-testid="stCaptionContainer"] p,
+        .section-title p, .recommendation-item p { color: var(--muted); }
+        .page-head p { color: #bdd0d6; }
+        .page-head .eyebrow { color: #60c8be; }
+        .page-guide { color: var(--muted); }
+
+        /* Streamlit/BaseWeb controls need explicit dark colors. */
+        [data-testid="stMain"] div[data-baseweb="select"] > div,
+        [data-testid="stMain"] div[data-baseweb="input"] > div,
+        [data-testid="stMain"] div[data-baseweb="base-input"],
+        [data-testid="stMain"] div[data-baseweb="textarea"],
+        [data-testid="stMain"] input, [data-testid="stMain"] textarea {
+            background-color: var(--control-bg) !important;
+            color: var(--control-text) !important;
+            border-color: var(--line) !important;
+        }
+        [data-testid="stMain"] div[data-baseweb="select"] *,
+        [data-testid="stMain"] div[data-baseweb="input"] *,
+        [data-testid="stMain"] div[data-baseweb="textarea"] * { color: var(--control-text) !important; }
+        [data-testid="stMain"] input::placeholder, [data-testid="stMain"] textarea::placeholder {
+            color: var(--control-placeholder) !important; opacity: 1;
+        }
+        div[data-baseweb="popover"], div[data-baseweb="menu"],
+        ul[role="listbox"], div[role="dialog"] {
+            background: var(--surface) !important; color: var(--ink) !important;
+        }
+        li[role="option"], li[role="option"] * { color: var(--ink) !important; }
+        li[role="option"]:hover, li[role="option"][aria-selected="true"] {
+            background: var(--surface-muted) !important;
+        }
+
+        button[data-baseweb="tab"] { color: var(--muted) !important; }
+        button[data-baseweb="tab"][aria-selected="true"] { color: #62d3c8 !important; }
+        div[data-testid="stExpander"] summary,
+        div[data-testid="stExpander"] summary * { color: var(--ink) !important; }
+        [data-testid="stMain"] button[kind="secondary"],
+        [data-testid="stMain"] button[kind="tertiary"],
+        [data-testid="stMain"] [data-testid="stDownloadButton"] button {
+            background: var(--surface) !important; color: var(--ink) !important;
+            border-color: var(--line) !important;
+        }
+        [data-testid="stMain"] button:disabled {
+            background: #263f49 !important;
+            color: #b8c8ce !important;
+            border-color: var(--line) !important;
+            opacity: 1 !important;
+        }
+        [data-testid="stMain"] button p, [data-testid="stMain"] button span { color: inherit !important; }
+        [data-testid="stMain"] .legendtext { fill: var(--ink) !important; }
+        div[data-testid="stDataFrame"] { background: var(--surface); color: var(--ink); }
+        div[data-testid="stMetricDelta"] svg { fill: currentColor; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -592,6 +655,11 @@ def apply_dark_theme(enabled: bool) -> None:
 @st.fragment(run_every=1)
 def live_system_status() -> None:
     st.caption(f"System online | {datetime.now().strftime('%d %b %Y, %I:%M:%S %p')}")
+
+
+def select_page(page_name: str) -> None:
+    """Update navigation before Streamlit redraws the page and its widgets."""
+    st.session_state.active_page = page_name
 
 
 add_css()
@@ -609,15 +677,15 @@ with st.sidebar:
     )
     st.markdown('<p class="nav-label">WORKSPACE</p>', unsafe_allow_html=True)
     for label, icon in NAV_ITEMS:
-        if st.button(
+        st.button(
             label,
             key=f"nav_{label}",
             icon=icon,
             type="primary" if st.session_state.active_page == label else "secondary",
             width="stretch",
-        ):
-            st.session_state.active_page = label
-            st.rerun()
+            on_click=select_page,
+            args=(label,),
+        )
 
     segment_values = sorted(customer_features["rfm_segment"].dropna().astype(str).unique())
     state_values = sorted(customer_features.get("state", pd.Series(dtype=str)).dropna().astype(str).unique())

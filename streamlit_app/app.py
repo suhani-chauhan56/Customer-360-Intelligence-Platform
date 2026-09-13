@@ -712,7 +712,7 @@ def chart(figure, height: int = 320, legend: str = "bottom", dark_mode: bool = F
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(family="Plus Jakarta Sans, Inter, sans-serif", color=text_color, size=12),
         title=dict(
-            font=dict(size=15, color=title_color, weight=700),
+            font=dict(size=15, color=title_color),
             x=0.01,
             xanchor="left",
             y=0.97,
@@ -725,21 +725,10 @@ def chart(figure, height: int = 320, legend: str = "bottom", dark_mode: bool = F
             font_color=hover_text,
             bordercolor=text_color,
             font_size=12,
-            font_family="Plus Jakarta Sans, sans-serif",
-        ),
-        xaxis=dict(
-            gridcolor=grid_color,
-            zerolinecolor=grid_color,
-            tickfont=dict(color=text_color),
-            titlefont=dict(color=text_color),
-        ),
-        yaxis=dict(
-            gridcolor=grid_color,
-            zerolinecolor=grid_color,
-            tickfont=dict(color=text_color),
-            titlefont=dict(color=text_color),
         ),
     )
+    figure.update_xaxes(gridcolor=grid_color, zerolinecolor=grid_color)
+    figure.update_yaxes(gridcolor=grid_color, zerolinecolor=grid_color)
     st.plotly_chart(figure, use_container_width=True, config=PLOT_CONFIG)
 
 

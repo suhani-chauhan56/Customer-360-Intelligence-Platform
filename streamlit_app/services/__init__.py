@@ -1,4 +1,4 @@
-"""Services package for CustomerAtlas."""
+"""Services package for CustomerAtlas enterprise application layer."""
 
 from services.data_service import (
     load_csv,
@@ -48,6 +48,25 @@ from services.recommendation_service import (
     get_customer_recommendations,
     summarize_recommendation_methods,
 )
+from services.health_score_service import (
+    calculate_customer_health_score,
+    classify_lifecycle_state,
+)
+from services.drift_service import (
+    calculate_psi,
+    run_feature_drift_audit,
+)
+from services.simulation_service import (
+    simulate_customer_value_shift,
+)
+from services.explainability_service import (
+    get_global_feature_importance,
+    explain_individual_prediction,
+)
+from services.audit_service import (
+    record_audit_event,
+    get_recent_audit_events,
+)
 
 __all__ = [
     "load_csv",
@@ -84,4 +103,13 @@ __all__ = [
     "generate_executive_insights",
     "get_customer_recommendations",
     "summarize_recommendation_methods",
+    "calculate_customer_health_score",
+    "classify_lifecycle_state",
+    "calculate_psi",
+    "run_feature_drift_audit",
+    "simulate_customer_value_shift",
+    "get_global_feature_importance",
+    "explain_individual_prediction",
+    "record_audit_event",
+    "get_recent_audit_events",
 ]

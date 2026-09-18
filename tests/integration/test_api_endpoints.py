@@ -120,3 +120,20 @@ def test_get_audit_logs():
     assert res.status_code == 200
     logs = res.json()["data"]
     assert isinstance(logs, list)
+
+
+def test_ask_customer_atlas_endpoint():
+    payload = {
+        "query": "Which customers are high-value and high-risk?",
+    }
+    res = client.post("/api/v1/analytics/ask", json=payload, headers=AUTH_HEADERS)
+    assert res.status_code == 200
+    json_data = res.json()
+    assert json_data["success"] is True
+    data = json_data["data"]
+    assert data["intent"] == "high_value_high_risk"
+    assert "headline" in data
+    assert "metrics" in data
+    assert len(data["evidence_points"]) > 0
+    assert "confidence_rating" in data
+

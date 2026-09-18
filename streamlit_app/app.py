@@ -1,947 +1,207 @@
-"""CustomerAtlas AI - Enterprise Customer 360 Intelligence Platform.
+"""CustomerAtlas — Unified Customer Intelligence Platform.
 
-Production-grade analytics application covering:
-- Executive Cockpit & Commercial Health
+Enterprise-grade B2B customer analytics platform covering:
+- Executive Overview & Commercial Health
 - Customer 360 Unified Profile Dossier
-- RFM & Behavioral Cluster Hub
-- Predictive AI Studio (What-If Churn & CLV Simulators)
-- Experience & Voice of Customer (VoC) Sentiment Radar
-- Next Best Offer & Merchandising Intelligence
-- Enterprise SQL & Warehouse Console
+- Audience & RFM Segmentation Hub (with Custom Cohort Builder)
+- Predictive AI Studio (What-If Churn & 12M CLV Simulators)
+- Experience & Voice of Customer (VoC) Radar
+- Next-Best-Offer & Merchandising Intelligence
+- Enterprise Data Warehouse & SQL Analytics Console
 
 Run locally:
     streamlit run streamlit_app/app.py
 """
 
-from datetime import datetime
-from io import BytesIO
+import sys
 from itertools import combinations
 from pathlib import Path
 
-import joblib
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+# Setup sys.path to resolve internal modules seamlessly
+APP_DIR = Path(__file__).resolve().parent
+if str(APP_DIR) not in sys.path:
+    sys.path.insert(0, str(APP_DIR))
+
+from components.cards import (
+    render_customer_hero,
+    render_empty_state,
+    render_error_state,
+    render_insight_card,
+    render_insight_grid,
+    render_recommendation_card,
+)
+from components.footer import render_footer
+from components.header import render_global_header, render_page_header
+from components.metric_cards import render_kpi_row
+from components.sidebar import render_sidebar
+from services.data_service import (
+    SQL_DIR,
+    build_customer_pdf,
+    load_csv,
+    load_model,
+    model_input_frame,
+    retention_action,
+)
+from utils.formatting import (
+    format_brl,
+    format_currency,
+    format_num,
+    format_number,
+    format_pct,
+    format_percent,
+)
+from utils.styling import (
+    CHART_COLORWAY,
+    COLOR_AMBER,
+    COLOR_CYAN,
+    COLOR_GREEN,
+    COLOR_PRIMARY,
+    COLOR_PURPLE,
+    COLOR_RED,
+    COLOR_SLATE,
+    PLOT_CONFIG,
+    load_css,
+    style_chart,
+)
 
 # ==============================================================================
-# CONFIGURATION & CONSTANTS
-# ==============================================================================
-
-ROOT = Path(__file__).resolve().parents[1]
-PROCESSED = ROOT / "data" / "processed"
-MODELS = ROOT / "models"
-SQL_DIR = ROOT / "sql"
-
-PLOT_CONFIG = {
-    "displaylogo": False,
-    "responsive": True,
-    "scrollZoom": False,
-    "modeBarButtonsToRemove": ["lasso2d", "select2d"],
-}
-
-MODEL_COLUMNS = [
-    "recency_days",
-    "frequency",
-    "monetary",
-    "avg_order_value",
-    "number_of_products",
-    "customer_age_days",
-]
-
-NAV_ITEMS = [
-    ("Executive Cockpit", ":material/dashboard:"),
-    ("Customer 360 Dossier", ":material/person_search:"),
-    ("Audience & Segments", ":material/pie_chart:"),
-    ("Predictive AI Studio", ":material/psychology:"),
-    ("Experience & VoC Radar", ":material/forum:"),
-    ("Next-Best-Offer & Catalog", ":material/auto_awesome:"),
-    ("Data Warehouse & SQL", ":material/database:"),
-]
-
-PAGE_COPY = {
-    "Executive Cockpit": (
-        "Executive Cockpit",
-        "Macro revenue velocity, customer retention health, and enterprise value distribution.",
-    ),
-    "Customer 360 Dossier": (
-        "Customer 360 Dossier",
-        "Deep 360-degree commercial profile, omnichannel journey, timeline, and recommended actions.",
-    ),
-    "Audience & Segments": (
-        "Audience & Segmentation Hub",
-        "Multidimensional RFM audiences, behavioral clustering, and targeted activation strategies.",
-    ),
-    "Predictive AI Studio": (
-        "Predictive AI Studio",
-        "Real-time What-If scenario simulation for calibrated churn propensity and forward CLV modeling.",
-    ),
-    "Experience & VoC Radar": (
-        "Customer Experience & VoC Radar",
-        "Live NLP review sentiment classifier, Voice of Customer trends, and campaign funnel ROI.",
-    ),
-    "Next-Best-Offer & Catalog": (
-        "Next-Best-Offer & Merchandising",
-        "Explainable cross-sell recommendations, basket co-occurrence rules, and catalog intelligence.",
-    ),
-    "Data Warehouse & SQL": (
-        "Data Warehouse & SQL Console",
-        "Governed dimensional star schema, live business query sandbox, and data contract audit.",
-    ),
-}
-
-PAGE_GUIDE = {
-    "Executive Cockpit": [
-        "Track macro revenue & orders",
-        "Inspect regional & segment Pareto breakdown",
-        "Monitor churn exposure value in real time",
-    ],
-    "Customer 360 Dossier": [
-        "Search 94k+ canonical profiles",
-        "Evaluate churn risk & lifetime trajectory",
-        "Export 1-click executive PDF / CSV dossier",
-    ],
-    "Audience & Segments": [
-        "Analyze 6 RFM audiences & 5 behavior clusters",
-        "Benchmark revenue contribution & average CLV",
-        "Export segmented lists for marketing activation",
-    ],
-    "Predictive AI Studio": [
-        "Simulate live What-If customer scenarios",
-        "Inspect global XGBoost SHAP/feature importance",
-        "Review held-out model comparison benchmarks",
-    ],
-    "Experience & VoC Radar": [
-        "Test custom review text with live NLP pipeline",
-        "Analyze sentiment trends & complaint/praise phrases",
-        "Benchmark marketing campaign conversion & ROI",
-    ],
-    "Next-Best-Offer & Catalog": [
-        "Generate explainable next-best-category offers",
-        "Inspect frequently bought together basket rules",
-        "Identify high-revenue & low-rated product categories",
-    ],
-    "Data Warehouse & SQL": [
-        "Run predefined executive business queries",
-        "Filter, search, and paginate warehouse extracts",
-        "Inspect full SQL schema & business query library",
-    ],
-}
-
-# Color palettes
-BRAND_TEAL = "#0D9488"
-BRAND_CYAN = "#06B6D4"
-BRAND_INDIGO = "#6366F1"
-BRAND_AMBER = "#F59E0B"
-BRAND_CORAL = "#F43F5E"
-BRAND_GREEN = "#10B981"
-BRAND_SLATE = "#1E293B"
-
-
-# ==============================================================================
-# STREAMLIT PAGE SETUP
+# APPLICATION SETUP & METADATA
 # ==============================================================================
 
 st.set_page_config(
-    page_title="CustomerAtlas AI | Customer 360 Intelligence Platform",
-    page_icon="⚡",
+    page_title="CustomerAtlas | Customer Intelligence",
+    page_icon="🧭",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
+# Inject centralized enterprise stylesheet
+load_css()
+
+# Page Metadata & Breadcrumb Content
+PAGE_META = {
+    "Executive Cockpit": {
+        "title": "Executive Overview & Commercial Health",
+        "subtitle": "Macro revenue velocity, cohort customer retention health, and enterprise value distribution.",
+        "category": "OVERVIEW",
+        "guides": [
+            "Track macro merchandise GMV & orders",
+            "Inspect regional & segment Pareto breakdown",
+            "Monitor churn exposure value in real time",
+            "Analyze order fulfillment health",
+        ],
+    },
+    "Customer 360 Dossier": {
+        "title": "Unified Customer 360 Dossier",
+        "subtitle": "360-degree commercial profile, omnichannel touchpoint journey, transaction timeline, and recommended actions.",
+        "category": "CUSTOMER INTELLIGENCE",
+        "guides": [
+            "Search 94k+ canonical profiles",
+            "Evaluate churn risk & lifetime trajectory",
+            "Inspect omnichannel web clickstream & campaigns",
+            "Export 1-click executive PDF / CSV dossier",
+        ],
+    },
+    "Audience & Segments": {
+        "title": "Audience & Segmentation Hub",
+        "subtitle": "Multidimensional RFM audiences, behavioral clustering, and targeted cohort activation builder.",
+        "category": "CUSTOMER INTELLIGENCE",
+        "guides": [
+            "Analyze 6 RFM audiences & 5 behavior clusters",
+            "Benchmark revenue contribution & average CLV",
+            "Strategic action playbook by audience",
+            "Interactive cohort builder with CSV export",
+        ],
+    },
+    "Predictive AI Studio": {
+        "title": "Predictive AI & Machine Learning Studio",
+        "subtitle": "Real-time What-If scenario simulation for calibrated churn propensity and forward 12-Month CLV modeling.",
+        "category": "BUSINESS ANALYTICS",
+        "guides": [
+            "Simulate live What-If customer churn scenarios",
+            "Interactive 12-Month forward CLV scenario estimator",
+            "Inspect global XGBoost SHAP/feature importance",
+            "Review held-out model comparison benchmarks",
+        ],
+    },
+    "Experience & VoC Radar": {
+        "title": "Customer Experience & VoC Radar",
+        "subtitle": "Live NLP review sentiment classifier, Voice of Customer trends, delivery performance impact, and campaign ROI.",
+        "category": "BUSINESS ANALYTICS",
+        "guides": [
+            "Test custom review text with live NLP pipeline",
+            "Analyze sentiment trends over time",
+            "Measure delivery delay impact on customer ratings",
+            "Benchmark marketing campaign conversion & ROI",
+        ],
+    },
+    "Next-Best-Offer & Catalog": {
+        "title": "Next-Best-Offer & Merchandising Intelligence",
+        "subtitle": "Explainable cross-sell recommendations, basket co-occurrence association rules, and catalog portfolio matrix.",
+        "category": "BUSINESS ANALYTICS",
+        "guides": [
+            "Generate explainable next-best-category offers",
+            "Inspect frequently bought together basket rules",
+            "Identify high-revenue & low-rated product categories",
+            "Audit recommendation engine logic distribution",
+        ],
+    },
+    "Data Warehouse & SQL": {
+        "title": "Data Warehouse & SQL Analytics Console",
+        "subtitle": "Governed dimensional star schema, live business query sandbox, and enterprise data contract audit.",
+        "category": "DATA PLATFORM",
+        "guides": [
+            "Run 8 predefined executive business queries",
+            "Filter, search, and paginate warehouse extracts",
+            "Inspect full star schema architecture",
+            "Review SQL catalog and data quality audit",
+        ],
+    },
+}
 
 # ==============================================================================
-# DATA & MODEL LOADERS (CACHED)
+# DATA INITIALIZATION & SIDEBAR NAVIGATION
 # ==============================================================================
 
-@st.cache_data(show_spinner=False)
-def load_csv(name: str, parse_dates: tuple[str, ...] = ()) -> pd.DataFrame:
-    path = PROCESSED / name
-    if not path.exists():
-        return pd.DataFrame()
-    return pd.read_csv(path, parse_dates=list(parse_dates))
-
-
-@st.cache_resource(show_spinner=False)
-def load_model(name: str):
-    path = MODELS / name
-    if not path.exists():
-        return None
-    try:
-        return joblib.load(path)
-    except Exception:
-        return None
-
-
-# ==============================================================================
-# UTILITY HELPERS
-# ==============================================================================
-
-def format_brl(value: float) -> str:
-    if pd.isna(value):
-        return "R$ 0"
-    val = float(value)
-    if abs(val) >= 1_000_000:
-        return f"R$ {val / 1_000_000:.2f}M"
-    if abs(val) >= 1_000:
-        return f"R$ {val:,.0f}"
-    return f"R$ {val:.2f}"
-
-
-def format_pct(value: float) -> str:
-    return "0.0%" if pd.isna(value) else f"{100 * float(value):.1f}%"
-
-
-def format_num(value: float) -> str:
-    if pd.isna(value):
-        return "0"
-    val = float(value)
-    if abs(val) >= 1_000_000:
-        return f"{val / 1_000_000:.2f}M"
-    if abs(val) >= 1_000:
-        return f"{val:,.0f}"
-    return f"{val:.0f}"
-
-
-def retention_action(probability: float, segment: str = "") -> dict:
-    if probability >= 0.65:
-        return {
-            "tier": "Critical Priority",
-            "badge_color": "#EF4444",
-            "action": "Immediate VIP retention outreach. Review logistics friction and deploy a personalized win-back voucher.",
-            "urgency": "High",
-        }
-    if probability >= 0.35:
-        return {
-            "tier": "Moderate Risk",
-            "badge_color": "#F59E0B",
-            "action": "Target with a tailored category re-engagement campaign. Highlight top-rated new arrivals in their favorite category.",
-            "urgency": "Medium",
-        }
-    if segment in {"Champions", "Loyal Customers"}:
-        return {
-            "tier": "Advocate / Protect",
-            "badge_color": "#10B981",
-            "action": "Reward loyalty with exclusive early-access perks and cross-sell premium complementary categories.",
-            "urgency": "Low (Growth)",
-        }
-    return {
-        "tier": "Standard Growth",
-        "badge_color": "#06B6D4",
-        "action": "Encourage second purchase journey with streamlined discovery and first-repeat free shipping incentive.",
-        "urgency": "Low",
-    }
-
-
-def model_input_frame(recency, frequency, monetary, avg_order_value, products, age) -> pd.DataFrame:
-    return pd.DataFrame(
-        [[recency, frequency, monetary, avg_order_value, products, age]],
-        columns=MODEL_COLUMNS,
-    )
-
-
-# ==============================================================================
-# ENTERPRISE DESIGN SYSTEM (CSS & THEME INJECTION)
-# ==============================================================================
-
-def inject_enterprise_styles(dark_mode: bool) -> None:
-    # Palette definition based on mode
-    if dark_mode:
-        bg_canvas = "#0A0F1D"
-        bg_surface = "#111827"
-        bg_surface_elevated = "#1F2937"
-        bg_card = "#162032"
-        border_color = "rgba(255, 255, 255, 0.08)"
-        border_glow = "rgba(13, 148, 136, 0.35)"
-        text_primary = "#F9FAFB"
-        text_secondary = "#9CA3AF"
-        text_muted = "#6B7280"
-        sidebar_bg = "#0B1120"
-        sidebar_border = "rgba(255, 255, 255, 0.06)"
-        table_stripe = "#131C2E"
-    else:
-        bg_canvas = "#F4F7FB"
-        bg_surface = "#FFFFFF"
-        bg_surface_elevated = "#F8FAFC"
-        bg_card = "#FFFFFF"
-        border_color = "#E2E8F0"
-        border_glow = "rgba(13, 148, 136, 0.25)"
-        text_primary = "#0F172A"
-        text_secondary = "#475569"
-        text_muted = "#64748B"
-        sidebar_bg = "#0F172A"
-        sidebar_border = "#1E293B"
-        table_stripe = "#F8FAFC"
-
-    st.markdown(
-        f"""
-        <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
-        :root {{
-            --bg-canvas: {bg_canvas};
-            --bg-surface: {bg_surface};
-            --bg-surface-elevated: {bg_surface_elevated};
-            --bg-card: {bg_card};
-            --border-color: {border_color};
-            --border-glow: {border_glow};
-            --text-primary: {text_primary};
-            --text-secondary: {text_secondary};
-            --text-muted: {text_muted};
-            --teal: #0D9488;
-            --teal-light: #14B8A6;
-            --cyan: #06B6D4;
-            --indigo: #6366F1;
-            --amber: #F59E0B;
-            --coral: #F43F5E;
-            --green: #10B981;
-        }}
-
-        * {{
-            font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            letter-spacing: -0.01em;
-        }}
-
-        .stApp {{
-            background: var(--bg-canvas);
-            color: var(--text-primary);
-        }}
-
-        /* Clean Streamlit Default UI Noise */
-        header[data-testid="stHeader"] {{ height: 0; background: transparent; }}
-        div[data-testid="stToolbar"] {{ visibility: hidden; height: 0; }}
-        div[data-testid="stDecoration"] {{ display: none; }}
-        [data-testid="stMainBlockContainer"] {{
-            max-width: 1440px;
-            padding: 0.8rem 2rem 3rem;
-        }}
-
-        /* Modern Sidebar */
-        section[data-testid="stSidebar"] {{
-            width: 290px !important;
-            min-width: 290px !important;
-            background: {sidebar_bg} !important;
-            border-right: 1px solid {sidebar_border} !important;
-        }}
-        section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {{
-            padding: 1.2rem 1rem;
-        }}
-        section[data-testid="stSidebar"] h1,
-        section[data-testid="stSidebar"] h2,
-        section[data-testid="stSidebar"] h3,
-        section[data-testid="stSidebar"] p,
-        section[data-testid="stSidebar"] label {{
-            color: #F8FAFC !important;
-        }}
-        section[data-testid="stSidebar"] .stCaptionContainer p {{
-            color: #94A3B8 !important;
-        }}
-
-        /* Brand Header in Sidebar */
-        .brand-container {{
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 14px;
-            margin-bottom: 20px;
-            background: linear-gradient(135deg, rgba(13,148,136,0.15) 0%, rgba(99,102,241,0.15) 100%);
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 10px;
-        }}
-        .brand-icon {{
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #0D9488 0%, #06B6D4 100%);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #FFFFFF;
-            font-size: 20px;
-            font-weight: 800;
-            box-shadow: 0 4px 12px rgba(13,148,136,0.4);
-        }}
-        .brand-title {{
-            font-size: 15px;
-            font-weight: 800;
-            color: #FFFFFF;
-            line-height: 1.1;
-        }}
-        .brand-subtitle {{
-            font-size: 10.5px;
-            font-weight: 500;
-            color: #94A3B8;
-            margin-top: 3px;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-        }}
-
-        /* Navigation Buttons in Sidebar */
-        .nav-category-header {{
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: #64748B !important;
-            margin: 16px 6px 8px;
-        }}
-        section[data-testid="stSidebar"] div[data-testid="stButton"] button {{
-            width: 100%;
-            min-height: 40px;
-            justify-content: flex-start;
-            border-radius: 8px;
-            border: 1px solid transparent;
-            padding: 8px 12px;
-            font-weight: 600;
-            font-size: 13.5px;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }}
-        section[data-testid="stSidebar"] div[data-testid="stButton"] button[kind="secondary"] {{
-            background: transparent;
-            color: #CBD5E1;
-        }}
-        section[data-testid="stSidebar"] div[data-testid="stButton"] button[kind="secondary"]:hover {{
-            background: rgba(255,255,255,0.06);
-            color: #FFFFFF;
-            transform: translateX(3px);
-        }}
-        section[data-testid="stSidebar"] div[data-testid="stButton"] button[kind="primary"] {{
-            background: linear-gradient(90deg, #0D9488 0%, #0F766E 100%);
-            color: #FFFFFF;
-            border-color: rgba(20,184,166,0.4);
-            box-shadow: 0 4px 14px rgba(13,148,136,0.35);
-        }}
-        section[data-testid="stSidebar"] div[data-testid="stButton"] button p,
-        section[data-testid="stSidebar"] div[data-testid="stButton"] button span {{
-            color: inherit !important;
-        }}
-
-        /* Executive Page Header */
-        .page-header-card {{
-            background: linear-gradient(135deg, rgba(13,148,136,0.08) 0%, rgba(99,102,241,0.05) 50%, var(--bg-surface) 100%);
-            border: 1px solid var(--border-color);
-            border-left: 4px solid var(--teal);
-            border-radius: 12px;
-            padding: 20px 24px;
-            margin-bottom: 18px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 16px;
-        }}
-        .page-badge {{
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 10.5px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--teal);
-            margin-bottom: 6px;
-        }}
-        .page-title {{
-            font-size: 26px;
-            font-weight: 800;
-            color: var(--text-primary);
-            line-height: 1.2;
-            margin: 0 0 6px 0;
-            letter-spacing: -0.02em;
-        }}
-        .page-subtitle {{
-            font-size: 13.5px;
-            color: var(--text-secondary);
-            margin: 0;
-            max-width: 750px;
-        }}
-        .page-status-pill {{
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: var(--bg-surface-elevated);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 6px 14px;
-            font-size: 11.5px;
-            font-weight: 600;
-            color: var(--text-secondary);
-        }}
-        .status-dot {{
-            width: 8px;
-            height: 8px;
-            background: var(--green);
-            border-radius: 50%;
-            box-shadow: 0 0 8px rgba(16,185,129,0.7);
-            animation: pulse-green 2s infinite;
-        }}
-
-        /* Executive Guide Bar */
-        .guide-bar {{
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 16px;
-            margin-bottom: 20px;
-            background: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            font-size: 12px;
-            color: var(--text-secondary);
-            flex-wrap: wrap;
-        }}
-        .guide-bar strong {{
-            color: var(--text-primary);
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }}
-        .guide-pill {{
-            background: var(--bg-surface-elevated);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 3px 9px;
-            font-size: 11px;
-            color: var(--text-secondary);
-        }}
-
-        /* Section Headings */
-        .section-header {{
-            display: flex;
-            align-items: baseline;
-            justify-content: space-between;
-            margin: 22px 0 12px 0;
-            padding-bottom: 6px;
-            border-bottom: 1px solid var(--border-color);
-        }}
-        .section-header h3 {{
-            font-size: 17px;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin: 0;
-            letter-spacing: -0.01em;
-        }}
-        .section-header span {{
-            font-size: 12px;
-            color: var(--text-muted);
-        }}
-
-        /* Metric Cards */
-        div[data-testid="stMetric"] {{
-            background: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 14px 16px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-            transition: all 0.2s ease;
-        }}
-        div[data-testid="stMetric"]:hover {{
-            border-color: var(--border-glow);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.06);
-        }}
-        div[data-testid="stMetricLabel"] {{
-            font-size: 12px !important;
-            font-weight: 600 !important;
-            color: var(--text-secondary) !important;
-        }}
-        div[data-testid="stMetricValue"] {{
-            font-family: 'JetBrains Mono', 'Plus Jakarta Sans', monospace !important;
-            font-size: 24px !important;
-            font-weight: 800 !important;
-            color: var(--text-primary) !important;
-            letter-spacing: -0.02em !important;
-        }}
-
-        /* Insight Cards */
-        .insight-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 12px;
-            margin: 14px 0 20px;
-        }}
-        .insight-card {{
-            background: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-left: 3px solid var(--teal);
-            border-radius: 8px;
-            padding: 14px 16px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.02);
-        }}
-        .insight-card.warning {{
-            border-left-color: var(--amber);
-        }}
-        .insight-card.alert {{
-            border-left-color: var(--coral);
-        }}
-        .insight-title {{
-            font-size: 14.5px;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 4px;
-        }}
-        .insight-desc {{
-            font-size: 12px;
-            color: var(--text-secondary);
-            line-height: 1.4;
-            margin: 0;
-        }}
-
-        /* Recommendation Cards */
-        .rec-card {{
-            background: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 16px;
-            margin-bottom: 10px;
-            transition: all 0.2s ease;
-            position: relative;
-            overflow: hidden;
-        }}
-        .rec-card:hover {{
-            border-color: var(--teal);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 18px rgba(13,148,136,0.12);
-        }}
-        .rec-card-rank {{
-            position: absolute;
-            top: 12px;
-            right: 14px;
-            font-size: 11px;
-            font-weight: 800;
-            color: var(--teal);
-            background: rgba(13,148,136,0.1);
-            padding: 3px 8px;
-            border-radius: 4px;
-        }}
-        .rec-card-title {{
-            font-size: 15px;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin: 0 0 6px 0;
-        }}
-        .rec-card-reason {{
-            font-size: 12px;
-            color: var(--text-secondary);
-            margin: 0;
-            line-height: 1.4;
-        }}
-
-        /* Forms, Buttons & Tabs */
-        div[data-testid="stForm"] {{
-            background: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 18px;
-        }}
-        div[data-testid="stExpander"] {{
-            background: var(--bg-surface) !important;
-            border: 1px solid var(--border-color) !important;
-            border-radius: 8px !important;
-        }}
-        div[data-testid="stDataFrame"] {{
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            overflow: hidden;
-        }}
-        div[data-testid="stPlotlyChart"] {{
-            background: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 8px;
-        }}
-        button[kind="primary"] {{
-            background: linear-gradient(90deg, #0D9488 0%, #0F766E 100%) !important;
-            border-color: #0D9488 !important;
-            color: #FFFFFF !important;
-            font-weight: 600 !important;
-            border-radius: 6px !important;
-        }}
-
-        /* Keyframe Animations */
-        @keyframes pulse-green {{
-            0%, 100% {{ transform: scale(1); opacity: 1; }}
-            50% {{ transform: scale(1.3); opacity: 0.6; }}
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def chart(figure, height: int = 320, legend: str = "bottom", dark_mode: bool = False) -> None:
-    """Standardized enterprise styling for Plotly charts."""
-    text_color = "#E2E8F0" if dark_mode else "#334155"
-    title_color = "#F8FAFC" if dark_mode else "#0F172A"
-    grid_color = "rgba(255,255,255,0.06)" if dark_mode else "rgba(0,0,0,0.06)"
-    hover_bg = "#1E293B" if dark_mode else "#FFFFFF"
-    hover_text = "#F8FAFC" if dark_mode else "#0F172A"
-
-    has_multi_item_legend = len(figure.data) > 1 or any(
-        getattr(trace, "type", "") in {"pie", "funnelarea", "sunburst"} for trace in figure.data
-    )
-    show_legend = legend != "hidden" and has_multi_item_legend
-
-    legend_layout = (
-        dict(
-            orientation="h",
-            yanchor="top",
-            y=-0.18,
-            xanchor="center",
-            x=0.5,
-            font=dict(size=11, color=text_color),
-        )
-        if legend == "bottom"
-        else dict(
-            orientation="v",
-            yanchor="middle",
-            y=0.5,
-            xanchor="left",
-            x=1.02,
-            font=dict(size=11, color=text_color),
-        )
-    )
-
-    figure.update_layout(
-        height=height,
-        margin=dict(l=14, r=14, t=48, b=56 if show_legend and legend == "bottom" else 28),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Plus Jakarta Sans, Inter, sans-serif", color=text_color, size=12),
-        title=dict(
-            font=dict(size=15, color=title_color),
-            x=0.01,
-            xanchor="left",
-            y=0.97,
-            yanchor="top",
-        ),
-        showlegend=show_legend,
-        legend=legend_layout,
-        hoverlabel=dict(
-            bgcolor=hover_bg,
-            font_color=hover_text,
-            bordercolor=text_color,
-            font_size=12,
-        ),
-    )
-    figure.update_xaxes(gridcolor=grid_color, zerolinecolor=grid_color)
-    figure.update_yaxes(gridcolor=grid_color, zerolinecolor=grid_color)
-    st.plotly_chart(figure, use_container_width=True, config=PLOT_CONFIG)
-
-
-def render_page_header(page_name: str) -> None:
-    title, subtitle = PAGE_COPY[page_name]
-    guides = PAGE_GUIDE.get(page_name, [])
-    guide_pills = "".join(f'<span class="guide-pill">✓ {g}</span>' for g in guides)
-
-    st.markdown(
-        f"""
-        <div class="page-header-card">
-            <div>
-                <div class="page-badge">⚡ CUSTOMERATLAS AI / CUSTOMER 360 PLATFORM</div>
-                <h1 class="page-title">{title}</h1>
-                <p class="page-subtitle">{subtitle}</p>
-            </div>
-            <div class="page-status-pill">
-                <span class="status-dot"></span>
-                <span>Live Intelligence Engine</span>
-                <span style="opacity: 0.4;">|</span>
-                <span>Currency: BRL</span>
-            </div>
-        </div>
-        <div class="guide-bar">
-            <strong>Key Capabilities:</strong>
-            {guide_pills}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def build_customer_pdf(profile: pd.Series) -> bytes:
-    """Generate professional executive Customer 360 PDF dossier."""
-    from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-    from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
-
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        rightMargin=36,
-        leftMargin=36,
-        topMargin=36,
-        bottomMargin=36,
-    )
-    styles = getSampleStyleSheet()
-
-    title_style = ParagraphStyle(
-        "DocTitle",
-        parent=styles["Heading1"],
-        fontSize=18,
-        leading=22,
-        textColor=colors.HexColor("#0F172A"),
-    )
-    sub_style = ParagraphStyle(
-        "DocSubtitle",
-        parent=styles["Normal"],
-        fontSize=10,
-        leading=14,
-        textColor=colors.HexColor("#475569"),
-    )
-
-    action_info = retention_action(float(profile.get("churn_probability", 0)), str(profile.get("rfm_segment", "")))
-
-    fields = [
-        ["Attribute", "Metric / Intelligence Value"],
-        ["Customer ID", str(profile.get("customer_id", ""))],
-        ["Location", f"{str(profile.get('city', '')).title()}, {str(profile.get('state', '')).upper()}"],
-        ["RFM Segment", str(profile.get("rfm_segment", ""))],
-        ["Behavior Cluster", str(profile.get("cluster_segment", ""))],
-        ["Favorite Category", str(profile.get("favorite_category", ""))],
-        ["Total Lifetime Spend", format_brl(profile.get("total_spend", 0))],
-        ["Total Orders Placed", str(int(profile.get("total_orders", 1)))],
-        ["Average Order Value", format_brl(profile.get("avg_order_value", 0))],
-        ["Recency (Days Inactive)", f"{int(profile.get('recency_days', 0))} days"],
-        ["12-Month CLV Proxy", format_brl(profile.get("predicted_clv", 0))],
-        ["Churn Propensity", format_pct(profile.get("churn_probability", 0))],
-        ["Retention Playbook Tier", action_info["tier"]],
-        ["Recommended Commercial Action", action_info["action"]],
-    ]
-
-    table = Table(fields, colWidths=[150, 370])
-    table.setStyle(
-        TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0D9488")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("PADDING", (0, 0), (-1, -1), 6),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#F8FAFC"), colors.white]),
-        ])
-    )
-
-    elements = [
-        Paragraph("CustomerAtlas AI - Unified Customer 360 Dossier", title_style),
-        Paragraph(f"Generated on {datetime.now().strftime('%B %d, %Y - %I:%M %p')} | Confidential Executive Report", sub_style),
-        Spacer(1, 10),
-        HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#0D9488"), spaceAfter=14),
-        table,
-    ]
-
-    doc.build(elements)
-    return buffer.getvalue()
-
-
-# ==============================================================================
-# STATE INITIALIZATION & SIDEBAR NAVIGATION
-# ==============================================================================
-
-if "active_page" not in st.session_state:
-    st.session_state.active_page = "Executive Cockpit"
-
-if "dark_mode" not in st.session_state:
-    st.session_state.dark_mode = False
-
-inject_enterprise_styles(st.session_state.dark_mode)
-
-# Load primary customer 360 feature store
 customer_features = load_csv("customer_360_features.csv", ("first_purchase_date", "last_purchase_date"))
 
 if customer_features.empty:
-    st.error("⚠️ App artifacts are missing in `data/processed/`. Please run notebooks 01 through 06.")
-    st.code("python -m venv .venv\nstreamlit run streamlit_app/app.py", language="bash")
+    render_error_state(
+        "Warehouse Artifact Missing",
+        "The primary customer feature store (`customer_360_features.csv`) could not be loaded from `data/processed/`. Please verify data pipeline extraction.",
+    )
     st.stop()
 
+# Render Global Application Shell
+filtered, current_page = render_sidebar(customer_features)
+render_global_header(total_profiles=len(customer_features))
 
-# Sidebar Navigation
-with st.sidebar:
-    st.markdown(
-        """
-        <div class="brand-container">
-            <div class="brand-icon">⚡</div>
-            <div>
-                <div class="brand-title">CustomerAtlas AI</div>
-                <div class="brand-subtitle">Enterprise Customer 360</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown('<div class="nav-category-header">ANALYTICS WORKSPACES</div>', unsafe_allow_html=True)
-    for label, icon in NAV_ITEMS:
-        is_active = st.session_state.active_page == label
-        if st.button(
-            label,
-            key=f"nav_{label}",
-            icon=icon,
-            type="primary" if is_active else "secondary",
-            use_container_width=True,
-        ):
-            st.session_state.active_page = label
-            st.rerun()
-
-    st.markdown('<div class="nav-category-header">GLOBAL AUDIENCE FILTERS</div>', unsafe_allow_html=True)
-    with st.expander("Filter Criteria", expanded=False, icon=":material/filter_list:"):
-        segment_options = ["All", *sorted(customer_features["rfm_segment"].dropna().unique())]
-        selected_segment = st.selectbox("RFM Segment", segment_options)
-
-        state_options = ["All", *sorted(customer_features["state"].dropna().unique())]
-        selected_state = st.selectbox("State / Region", state_options)
-
-        cat_options = ["All", *sorted(customer_features["favorite_category"].dropna().unique())]
-        selected_category = st.selectbox("Favorite Category", cat_options)
-
-        min_date = customer_features["last_purchase_date"].min().date()
-        max_date = customer_features["last_purchase_date"].max().date()
-        date_range = st.date_input(
-            "Purchase Date Window",
-            value=(min_date, max_date),
-            min_value=min_date,
-            max_value=max_date,
-        )
-
-    st.markdown('<div class="nav-category-header">PREFERENCES & HEALTH</div>', unsafe_allow_html=True)
-    dark_mode_toggle = st.toggle("Dark Mode Theme", value=st.session_state.dark_mode)
-    if dark_mode_toggle != st.session_state.dark_mode:
-        st.session_state.dark_mode = dark_mode_toggle
-        st.rerun()
-
-    st.caption(f"🟢 Warehouse Active | {len(customer_features):,} Canonical Profiles")
-    st.caption(f"🕒 {datetime.now().strftime('%d %b %Y, %I:%M %p')}")
-
-
-# Filter Customer Features
-filtered = customer_features.copy()
-if selected_segment != "All":
-    filtered = filtered[filtered["rfm_segment"] == selected_segment]
-if selected_state != "All" and "state" in filtered.columns:
-    filtered = filtered[filtered["state"] == selected_state]
-if selected_category != "All":
-    filtered = filtered[filtered["favorite_category"] == selected_category]
-if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
-    start_dt, end_dt = pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])
-    filtered = filtered[filtered["last_purchase_date"].between(start_dt, end_dt)]
-
-
-# Page Router
-current_page = st.session_state.active_page
-render_page_header(current_page)
+page_info = PAGE_META.get(current_page, PAGE_META["Executive Cockpit"])
+render_page_header(
+    page_name=current_page,
+    title=page_info["title"],
+    subtitle=page_info["subtitle"],
+    category_badge=page_info["category"],
+    guides=page_info["guides"],
+)
 
 if filtered.empty:
-    st.warning("⚠️ No customer profiles match your filter criteria. Open 'Global Audience Filters' in the sidebar to broaden selections.")
+    render_empty_state(
+        title="No Matching Customer Profiles",
+        description="No customer records match the currently applied audience filter criteria. Please broaden your selection or reset filters.",
+        show_reset=True,
+    )
     st.stop()
 
 
 # ==============================================================================
-# WORKSPACE 1: EXECUTIVE COCKPIT
+# WORKSPACE 1: EXECUTIVE OVERVIEW (EXECUTIVE COCKPIT)
 # ==============================================================================
 
 if current_page == "Executive Cockpit":
@@ -953,44 +213,111 @@ if current_page == "Executive Cockpit":
     avg_satisfaction = filtered["avg_review_score"].mean()
     repeat_customers = (filtered["total_orders"] > 1).sum()
     repeat_rate = repeat_customers / max(1, total_profiles)
-    at_risk_rev = filtered[filtered["churn_probability"] >= 0.65]["total_spend"].sum()
+    at_risk_df = filtered[filtered["churn_probability"] >= 0.65]
+    at_risk_rev = at_risk_df["total_spend"].sum()
 
-    # Executive KPI Grid
-    kpi_cols = st.columns(6)
-    kpi_cols[0].metric("Total Customers", f"{total_profiles:,}", "Profiles in view")
-    kpi_cols[1].metric("Merchandise GMV", format_brl(total_rev), "Total Spend")
-    kpi_cols[2].metric("Total Orders", f"{total_ord:,}", f"{(total_ord/total_profiles):.2f} orders/cust")
-    kpi_cols[3].metric("Avg 12M CLV", format_brl(avg_clv_val), "Forward value")
-    kpi_cols[4].metric("Churn Propensity", format_pct(churn_rate), f"{format_brl(at_risk_rev)} at risk")
-    kpi_cols[5].metric("Avg CSAT Score", f"{avg_satisfaction:.2f} / 5", "Olist Reviews")
+    # Enterprise KPI Card Row
+    render_kpi_row([
+        {
+            "label": "Total Customers",
+            "value": f"{total_profiles:,}",
+            "subtitle": "Active in view",
+            "icon": "👥",
+        },
+        {
+            "label": "Merchandise GMV",
+            "value": format_brl(total_rev),
+            "subtitle": "Total gross spend",
+            "icon": "💰",
+        },
+        {
+            "label": "Total Orders",
+            "value": f"{total_ord:,}",
+            "subtitle": f"{(total_ord/max(1, total_profiles)):.2f} orders/cust",
+            "icon": "📦",
+        },
+        {
+            "label": "Avg 12M CLV",
+            "value": format_brl(avg_clv_val),
+            "subtitle": "Forward value proxy",
+            "icon": "📈",
+        },
+        {
+            "label": "Churn Propensity",
+            "value": format_pct(churn_rate),
+            "delta": format_brl(at_risk_rev),
+            "delta_direction": "negative",
+            "subtitle": "at-risk exposure",
+            "icon": "⚠️",
+        },
+        {
+            "label": "Avg CSAT Score",
+            "value": f"{avg_satisfaction:.2f} / 5",
+            "subtitle": "Review feedback",
+            "icon": "⭐",
+        },
+    ])
 
-    # Executive Insight Strip
+    # Dynamic Executive Insights Grid
     top_seg = filtered.groupby("rfm_segment")["total_spend"].sum().idxmax()
     top_seg_rev = filtered.groupby("rfm_segment")["total_spend"].sum().max()
     top_state_name = filtered.groupby("state")["total_spend"].sum().idxmax()
     top_state_rev = filtered.groupby("state")["total_spend"].sum().max()
 
-    st.markdown(
-        f"""
-        <div class="insight-grid">
-            <div class="insight-card">
-                <div class="insight-title">🏆 Top Revenue Segment: {top_seg}</div>
-                <p class="insight-desc">Generates <strong>{format_brl(top_seg_rev)}</strong> ({top_seg_rev/total_rev:.1%} of filtered GMV). Priority audience for retention.</p>
-            </div>
-            <div class="insight-card">
-                <div class="insight-title">📍 Top Geographic Hub: {top_state_name}</div>
-                <p class="insight-desc">Leads regional demand with <strong>{format_brl(top_state_rev)}</strong> in sales. Recommended for logistics fulfillment priority.</p>
-            </div>
-            <div class="insight-card alert">
-                <div class="insight-title">⚠️ Churn Risk Exposure: {format_brl(at_risk_rev)}</div>
-                <p class="insight-desc">{(filtered['churn_probability'] >= 0.65).sum():,} customers show high churn propensity. Repeat buyer rate is <strong>{repeat_rate:.1%}</strong>.</p>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    render_insight_grid([
+        {
+            "title": f"Top Revenue Segment: {top_seg}",
+            "description": f"Generates <strong>{format_brl(top_seg_rev)}</strong> ({top_seg_rev/max(1, total_rev):.1%} of filtered GMV). Priority audience for retention.",
+            "kind": "info",
+        },
+        {
+            "title": f"Top Geographic Hub: {top_state_name}",
+            "description": f"Leads regional demand with <strong>{format_brl(top_state_rev)}</strong> in sales. Recommended for logistics fulfillment priority.",
+            "kind": "info",
+        },
+        {
+            "title": f"Churn Risk Exposure: {format_brl(at_risk_rev)}",
+            "description": f"{len(at_risk_df):,} customers show high churn propensity. Repeat buyer rate across base is <strong>{repeat_rate:.1%}</strong>.",
+            "kind": "alert",
+        },
+    ])
 
-    # Executive Charts Row 1
+    # Macro Revenue & Order Volume Velocity
+    fact_orders = load_csv("fact_orders.csv", ("purchase_date",))
+    if not fact_orders.empty:
+        st.markdown('<div class="section-header"><h3>Macro Revenue Velocity & Order Trajectory</h3><span>Timeline Performance</span></div>', unsafe_allow_html=True)
+        valid_orders = fact_orders[~fact_orders["order_status"].isin(["canceled", "unavailable"])].copy()
+        valid_orders["month_year"] = valid_orders["purchase_date"].dt.to_period("M").astype(str)
+        monthly_summary = valid_orders.groupby("month_year", as_index=False).agg(
+            revenue=("revenue", "sum"),
+            orders=("order_id", "nunique"),
+        ).sort_values("month_year")
+
+        fig_macro = go.Figure()
+        fig_macro.add_trace(go.Bar(
+            x=monthly_summary["month_year"],
+            y=monthly_summary["revenue"],
+            name="Revenue (BRL)",
+            marker_color=COLOR_PRIMARY,
+            opacity=0.85,
+        ))
+        fig_macro.add_trace(go.Scatter(
+            x=monthly_summary["month_year"],
+            y=monthly_summary["orders"],
+            name="Order Count",
+            yaxis="y2",
+            mode="lines+markers",
+            line=dict(color=COLOR_AMBER, width=3),
+            marker=dict(size=6),
+        ))
+        fig_macro.update_layout(
+            title="Monthly Merchandise Revenue (BRL) and Order Volume Trajectory",
+            yaxis=dict(title="Revenue (BRL)"),
+            yaxis2=dict(title="Order Count", overlaying="y", side="right", showgrid=False),
+        )
+        style_chart(fig_macro, 320, legend="top")
+
+    # Segment Breakdown & Top Regional States
     col_chart_1, col_chart_2 = st.columns(2)
     with col_chart_1:
         seg_rev = filtered.groupby("rfm_segment", as_index=False)["total_spend"].sum().sort_values("total_spend", ascending=True)
@@ -1000,12 +327,12 @@ if current_page == "Executive Cockpit":
             y="rfm_segment",
             orientation="h",
             color="rfm_segment",
-            title="Revenue Contribution by RFM Segment",
-            color_discrete_sequence=[BRAND_TEAL, BRAND_CYAN, BRAND_INDIGO, BRAND_AMBER, BRAND_CORAL, "#8B5CF6"],
+            title="Merchandise Revenue Contribution by RFM Segment",
+            color_discrete_sequence=CHART_COLORWAY,
         )
         fig_seg.update_xaxes(title="Total Spend (BRL)")
         fig_seg.update_yaxes(title=None)
-        chart(fig_seg, 320, legend="hidden", dark_mode=st.session_state.dark_mode)
+        style_chart(fig_seg, 320, legend="hidden")
 
     with col_chart_2:
         state_rev = filtered.groupby("state", as_index=False)["total_spend"].sum().nlargest(10, "total_spend").sort_values("total_spend", ascending=True)
@@ -1014,16 +341,16 @@ if current_page == "Executive Cockpit":
             x="total_spend",
             y="state",
             orientation="h",
-            title="Top 10 States by Merchandise Revenue",
+            title="Top 10 Brazilian States by Merchandise Revenue",
             color="total_spend",
-            color_continuous_scale="Teal",
+            color_continuous_scale="Blues",
         )
         fig_state.update_xaxes(title="Revenue (BRL)")
         fig_state.update_yaxes(title="State")
         fig_state.update_layout(coloraxis_showscale=False)
-        chart(fig_state, 320, legend="hidden", dark_mode=st.session_state.dark_mode)
+        style_chart(fig_state, 320, legend="hidden")
 
-    # Customer Scatter & Value Matrix
+    # Recency vs Spend Density Scatter Matrix
     with st.expander("Customer Lifetime Value vs Recency Scatter Matrix", expanded=True, icon=":material/scatter_plot:"):
         sample_size = min(len(filtered), 2500)
         scatter_sample = filtered.sample(sample_size, random_state=42)
@@ -1035,14 +362,14 @@ if current_page == "Executive Cockpit":
             size="total_orders",
             hover_data=["customer_id", "state", "predicted_clv", "churn_probability"],
             title=f"Recency vs Spend Density (Sample of {sample_size:,} Profiles)",
-            color_discrete_sequence=[BRAND_TEAL, BRAND_CYAN, BRAND_INDIGO, BRAND_AMBER, BRAND_CORAL, "#8B5CF6"],
+            color_discrete_sequence=CHART_COLORWAY,
         )
         fig_scatter.update_xaxes(title="Days Inactive (Recency)")
         fig_scatter.update_yaxes(title="Total Spend (BRL)")
-        chart(fig_scatter, 340, legend="bottom", dark_mode=st.session_state.dark_mode)
+        style_chart(fig_scatter, 340, legend="bottom")
 
-    # Export Row
-    exp_col1, exp_col2 = st.columns([0.3, 0.7])
+    # Export View Action
+    exp_col1, _ = st.columns([0.35, 0.65])
     with exp_col1:
         st.download_button(
             "Download Filtered Customer Profiles (CSV)",
@@ -1060,6 +387,7 @@ if current_page == "Executive Cockpit":
 
 elif current_page == "Customer 360 Dossier":
     fact_orders = load_csv("fact_orders.csv", ("purchase_date",))
+    fact_payments = load_csv("fact_payments.csv")
     recommendations = load_csv("recommendations.csv")
 
     # Search & Presets
@@ -1099,49 +427,61 @@ elif current_page == "Customer 360 Dossier":
     churn_val = float(profile.get("churn_probability", 0))
     action_info = retention_action(churn_val, str(profile.get("rfm_segment", "")))
 
-    st.markdown(
-        f"""
-        <div class="page-header-card" style="margin-top: 12px; background: linear-gradient(135deg, rgba(13,148,136,0.12) 0%, var(--bg-surface) 100%);">
-            <div style="display: flex; align-items: center; gap: 16px;">
-                <div style="width: 52px; height: 52px; border-radius: 12px; background: #0D9488; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: 800;">
-                    {str(profile.get('rfm_segment', 'C'))[0]}
-                </div>
-                <div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 18px; font-weight: 800; color: var(--text-primary);">{profile.get('customer_id')}</span>
-                        <span style="background: rgba(13,148,136,0.15); color: #0D9488; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px;">{profile.get('rfm_segment')}</span>
-                        <span style="background: rgba(99,102,241,0.15); color: #6366F1; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px;">{profile.get('cluster_segment')}</span>
-                    </div>
-                    <p style="margin: 4px 0 0; font-size: 13px; color: var(--text-secondary);">
-                        📍 {str(profile.get('city', 'Unknown')).title()}, {str(profile.get('state', 'SP')).upper()} &nbsp;|&nbsp;
-                        Category Affinity: <strong>{profile.get('favorite_category')}</strong> &nbsp;|&nbsp;
-                        Customer Tier: <strong>{profile.get('clv_band', 'Standard')}</strong>
-                    </p>
-                </div>
-            </div>
-            <div>
-                <span style="background: {action_info['badge_color']}; color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700;">
-                    {action_info['tier']}
-                </span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    render_customer_hero(
+        customer_id=str(profile.get("customer_id")),
+        rfm_segment=str(profile.get("rfm_segment")),
+        cluster_segment=str(profile.get("cluster_segment")),
+        city=str(profile.get("city", "Unknown")),
+        state=str(profile.get("state", "SP")),
+        favorite_category=str(profile.get("favorite_category")),
+        clv_band=str(profile.get("clv_band", "Standard")),
+        action_tier=action_info["tier"],
+        action_badge_color=action_info["badge_color"],
     )
 
     # Dossier Quick Metrics
-    metric_cols = st.columns(5)
-    metric_cols[0].metric("Total Lifetime Spend", format_brl(profile["total_spend"]))
-    metric_cols[1].metric("Total Orders", f"{profile['total_orders']:.0f}")
-    metric_cols[2].metric("Average Order Value", format_brl(profile["avg_order_value"]))
-    metric_cols[3].metric("12M CLV Proxy", format_brl(profile["predicted_clv"]))
-    metric_cols[4].metric("Churn Propensity", format_pct(profile["churn_probability"]))
+    churn_dir = "negative" if churn_val >= 0.65 else "positive" if churn_val <= 0.35 else "neutral"
+    render_kpi_row([
+        {
+            "label": "Total Lifetime Spend",
+            "value": format_brl(profile["total_spend"]),
+            "subtitle": "Gross spend",
+            "icon": "💳",
+        },
+        {
+            "label": "Total Orders",
+            "value": f"{profile['total_orders']:.0f}",
+            "subtitle": "Completed transactions",
+            "icon": "📦",
+        },
+        {
+            "label": "Average Order Value",
+            "value": format_brl(profile["avg_order_value"]),
+            "subtitle": "Per order average",
+            "icon": "🛒",
+        },
+        {
+            "label": "12M CLV Proxy",
+            "value": format_brl(profile["predicted_clv"]),
+            "subtitle": "Forward value potential",
+            "icon": "💎",
+        },
+        {
+            "label": "Churn Propensity",
+            "value": format_pct(profile["churn_probability"]),
+            "delta": action_info["tier"],
+            "delta_direction": churn_dir,
+            "subtitle": "Calibrated risk",
+            "icon": "🎯",
+        },
+    ])
 
-    # 4-Tab Unified Dossier
-    tab_profile, tab_journey, tab_orders, tab_offers = st.tabs([
+    # 5-Tab Unified Dossier
+    tab_profile, tab_journey, tab_orders, tab_payments, tab_offers = st.tabs([
         "📋 Unified Profile",
         "🌐 Omnichannel & Engagement",
         "📦 Order History Timeline",
+        "💳 Payment Methods",
         "🎁 AI Next-Best-Offers",
     ])
 
@@ -1154,41 +494,43 @@ elif current_page == "Customer 360 Dossier":
                 "RFM Audience Segment": profile.get("rfm_segment"),
                 "Behavioral Cluster": profile.get("cluster_segment"),
                 "Primary Affinity Category": profile.get("favorite_category"),
-                "Days Since Last Order": f"{int(profile.get('recency_days', 0))} days",
+                "Days Since Last Order (Recency)": f"{int(profile.get('recency_days', 0))} days",
                 "Distinct Items Purchased": int(profile.get("number_of_products", 1)),
                 "Average Review Score": f"{profile.get('avg_review_score', 5.0):.1f} / 5.0",
                 "Estimated 90-Day Revenue": format_brl(profile.get("predicted_90d_revenue", 0)),
+                "RFM Score Breakdown (R / F / M)": f"R:{profile.get('r_score', 1)} | F:{profile.get('f_score', 1)} | M:{profile.get('m_score', 1)}",
             }
             summary_df = pd.DataFrame({"Attribute": summary_dict.keys(), "Intelligence Metric": summary_dict.values()})
-            st.dataframe(summary_df, hide_index=True, use_container_width=True, height=330)
+            st.dataframe(summary_df, hide_index=True, use_container_width=True, height=360)
 
         with col_prof_right:
             gauge_fig = go.Figure(go.Indicator(
                 mode="gauge+number",
                 value=100 * churn_val,
-                number={"suffix": "%", "font": {"family": "JetBrains Mono", "size": 28}},
-                title={"text": "<b>Churn Propensity</b>", "font": {"size": 15}},
+                number={"suffix": "%", "font": {"family": "JetBrains Mono", "size": 28, "color": COLOR_SLATE}},
+                title={"text": "<b>Churn Propensity</b>", "font": {"size": 14, "color": COLOR_SLATE}},
                 gauge={
                     "axis": {"range": [0, 100]},
                     "bar": {"color": action_info["badge_color"]},
                     "steps": [
-                        {"range": [0, 35], "color": "rgba(16,185,129,0.15)"},
-                        {"range": [35, 65], "color": "rgba(245,158,11,0.15)"},
-                        {"range": [65, 100], "color": "rgba(239,68,68,0.15)"},
+                        {"range": [0, 35], "color": "rgba(22,163,74,0.12)"},
+                        {"range": [35, 65], "color": "rgba(245,158,11,0.12)"},
+                        {"range": [65, 100], "color": "rgba(220,38,38,0.12)"},
                     ],
                 },
             ))
             gauge_fig.update_layout(height=210, margin=dict(l=15, r=15, t=35, b=5), paper_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(gauge_fig, use_container_width=True, config=PLOT_CONFIG)
-            st.info(f"**Recommended Playbook:** {action_info['action']}")
+            st.info(f"**Recommended Action:** {action_info['action']}")
 
     with tab_journey:
-        j_col1, j_col2, j_col3, j_col4, j_col5 = st.columns(5)
-        j_col1.metric("Web Sessions", f"{profile.get('sessions', 0):,.0f}")
-        j_col2.metric("Page Views", f"{profile.get('views', 0):,.0f}")
-        j_col3.metric("Cart Additions", f"{profile.get('cart_additions', 0):,.0f}")
-        j_col4.metric("Campaign Clicks", f"{profile.get('campaign_clicks', 0):,.0f}")
-        j_col5.metric("Campaign Conversions", f"{profile.get('campaign_conversions', 0):,.0f}")
+        render_kpi_row([
+            {"label": "Web Sessions", "value": f"{profile.get('sessions', 0):,.0f}", "subtitle": "Digital visits"},
+            {"label": "Page Views", "value": f"{profile.get('views', 0):,.0f}", "subtitle": "Browsing activity"},
+            {"label": "Cart Additions", "value": f"{profile.get('cart_additions', 0):,.0f}", "subtitle": "High intent actions"},
+            {"label": "Campaign Clicks", "value": f"{profile.get('campaign_clicks', 0):,.0f}", "subtitle": "Email responses"},
+            {"label": "Campaign Conversions", "value": f"{profile.get('campaign_conversions', 0):,.0f}", "subtitle": "Direct sales"},
+        ])
 
         journey_table = pd.DataFrame([
             {"Touchpoint Channel": "Digital Web Activity", "Signal / Metric": "Web Engagement Score", "Score / Value": f"{profile.get('web_engagement_score', 0):.1f} pts"},
@@ -1214,6 +556,30 @@ elif current_page == "Customer 360 Dossier":
         else:
             st.info("Transaction history fact table is currently loading.")
 
+    with tab_payments:
+        if not fact_payments.empty and not fact_orders.empty:
+            cust_order_ids = fact_orders[fact_orders["customer_id"] == selected_cust]["order_id"].unique()
+            cust_payments = fact_payments[fact_payments["order_id"].isin(cust_order_ids)].copy()
+            if not cust_payments.empty:
+                pay_col1, pay_col2 = st.columns([0.5, 0.5])
+                with pay_col1:
+                    st.markdown("**Payment Method Breakdown:**")
+                    st.dataframe(cust_payments[["payment_type", "payment_installments", "payment_value"]], hide_index=True, use_container_width=True)
+                with pay_col2:
+                    pay_pie = px.pie(
+                        cust_payments,
+                        names="payment_type",
+                        values="payment_value",
+                        hole=0.5,
+                        title="Payment Value Distribution",
+                        color_discrete_sequence=CHART_COLORWAY,
+                    )
+                    style_chart(pay_pie, 220, legend="hidden")
+            else:
+                st.info("No payment method logs found for this customer's orders.")
+        else:
+            st.info("Payment facts are loading.")
+
     with tab_offers:
         if not recommendations.empty:
             cust_recs = recommendations[recommendations["customer_id"] == selected_cust].sort_values("rank")
@@ -1225,23 +591,19 @@ elif current_page == "Customer 360 Dossier":
                 for col_idx, (_, rec) in enumerate(cust_recs.head(5).iterrows()):
                     with rec_cols[col_idx]:
                         st.markdown(
-                            f"""
-                            <div class="rec-card">
-                                <span class="rec-card-rank">#{int(rec['rank'])}</span>
-                                <div class="rec-card-title">{rec['recommended_category']}</div>
-                                <p class="rec-card-reason"><strong>Reason:</strong> {rec['reason']}</p>
-                                <div style="margin-top: 8px; font-size: 11px; color: var(--teal); font-weight: 600;">
-                                    Method: {rec.get('method', 'Basket Co-occurrence')}
-                                </div>
-                            </div>
-                            """,
+                            render_recommendation_card(
+                                rank=int(rec["rank"]),
+                                category=str(rec["recommended_category"]),
+                                reason=str(rec["reason"]),
+                                method=str(rec.get("method", "Basket Co-occurrence")),
+                            ),
                             unsafe_allow_html=True,
                         )
         else:
             st.info("Recommendations dataset is loading.")
 
     # Export Dossier Row
-    dossier_exp1, dossier_exp2 = st.columns([0.25, 0.25])
+    dossier_exp1, dossier_exp2 = st.columns([0.3, 0.3])
     with dossier_exp1:
         st.download_button(
             "Download Executive PDF Dossier",
@@ -1282,9 +644,9 @@ elif current_page == "Audience & Segments":
             values="Customers",
             hole=0.55,
             title="RFM Audience Distribution",
-            color_discrete_sequence=[BRAND_TEAL, BRAND_CYAN, BRAND_INDIGO, BRAND_AMBER, BRAND_CORAL, "#8B5CF6"],
+            color_discrete_sequence=CHART_COLORWAY,
         )
-        chart(fig_rfm_pie, 330, legend="bottom", dark_mode=st.session_state.dark_mode)
+        style_chart(fig_rfm_pie, 330, legend="bottom")
 
     with col_seg_2:
         fig_clust_bar = px.bar(
@@ -1294,11 +656,11 @@ elif current_page == "Audience & Segments":
             orientation="h",
             title="Revenue Contribution by Behavioral Cluster",
             color="cluster_segment",
-            color_discrete_sequence=px.colors.qualitative.Bold,
+            color_discrete_sequence=CHART_COLORWAY,
         )
         fig_clust_bar.update_xaxes(title="Revenue (BRL)")
         fig_clust_bar.update_yaxes(title=None)
-        chart(fig_clust_bar, 330, legend="hidden", dark_mode=st.session_state.dark_mode)
+        style_chart(fig_clust_bar, 330, legend="hidden")
 
     # Segment Strategy Action Table
     st.markdown('<div class="section-header"><h3>Strategic Segment Action Playbook</h3><span>Audience Activation Matrix</span></div>', unsafe_allow_html=True)
@@ -1320,28 +682,36 @@ elif current_page == "Audience & Segments":
             size="recency_days",
             hover_data=["customer_id", "cluster_segment", "predicted_clv"],
             title="Audience Clustering (Frequency vs Monetary vs Recency)",
-            color_discrete_sequence=[BRAND_TEAL, BRAND_CYAN, BRAND_INDIGO, BRAND_AMBER, BRAND_CORAL, "#8B5CF6"],
+            color_discrete_sequence=CHART_COLORWAY,
         )
         fig_bubble.update_xaxes(title="Order Frequency")
         fig_bubble.update_yaxes(title="Monetary Value (BRL)")
-        chart(fig_bubble, 340, legend="bottom", dark_mode=st.session_state.dark_mode)
+        style_chart(fig_bubble, 340, legend="bottom")
 
-    # Segment Download Row
-    seg_d1, seg_d2 = st.columns(2)
-    with seg_d1:
+    # Interactive Custom Audience Cohort Builder
+    st.markdown('<div class="section-header"><h3>Custom Marketing Cohort Builder</h3><span>Targeted Campaign Activation</span></div>', unsafe_allow_html=True)
+    with st.expander("Configure Targeted Audience Parameters", expanded=True, icon=":material/tune:"):
+        b_c1, b_c2, b_c3 = st.columns(3)
+        b_rfm = b_c1.multiselect("Select RFM Target Audiences", sorted(filtered["rfm_segment"].unique()), default=["Champions", "Loyal Customers"])
+        b_min_spend = b_c2.slider("Minimum Lifetime Spend (BRL)", 0.0, 5000.0, 100.0, step=50.0)
+        b_max_churn = b_c3.slider("Max Acceptable Churn Propensity", 0.0, 1.0, 0.70, step=0.05)
+
+        cohort_result = filtered.copy()
+        if b_rfm:
+            cohort_result = cohort_result[cohort_result["rfm_segment"].isin(b_rfm)]
+        cohort_result = cohort_result[(cohort_result["total_spend"] >= b_min_spend) & (cohort_result["churn_probability"] <= b_max_churn)]
+
+        render_kpi_row([
+            {"label": "Matching Audience Size", "value": f"{len(cohort_result):,} Customers", "subtitle": "Audience size"},
+            {"label": "Total Cohort GMV", "value": format_brl(cohort_result["total_spend"].sum()), "subtitle": "Gross spending"},
+            {"label": "Average Cohort CLV", "value": format_brl(cohort_result["predicted_clv"].mean()), "subtitle": "Forward value"},
+        ])
+
+        st.markdown("<div style='margin-top: 14px;'></div>", unsafe_allow_html=True)
         st.download_button(
-            "Export RFM Audience Breakdown (CSV)",
-            seg_counts.to_csv(index=False).encode("utf-8"),
-            "rfm_audience_summary.csv",
-            "text/csv",
-            icon=":material/download:",
-            use_container_width=True,
-        )
-    with seg_d2:
-        st.download_button(
-            "Export Cluster Revenue Breakdown (CSV)",
-            cluster_rev.to_csv(index=False).encode("utf-8"),
-            "behavior_cluster_revenue.csv",
+            "Export Targeted Campaign Cohort (CSV)",
+            cohort_result.to_csv(index=False).encode("utf-8"),
+            "targeted_marketing_cohort.csv",
             "text/csv",
             icon=":material/download:",
             use_container_width=True,
@@ -1354,12 +724,11 @@ elif current_page == "Audience & Segments":
 
 elif current_page == "Predictive AI Studio":
     st.markdown(
-        """
-        <div class="insight-card warning" style="margin-bottom: 16px;">
-            <div class="insight-title">📌 Governance & Calibration Transparency</div>
-            <p class="insight-desc">Olist transactions do not contain native subscription churn logs. Machine learning models in this platform are trained on calibrated portfolio proxy targets using XGBoost to demonstrate enterprise analytics, propensity scoring, and automated decision playbooks.</p>
-        </div>
-        """,
+        render_insight_card(
+            title="📌 Governance & Calibration Transparency",
+            description="Olist transactions do not contain native subscription churn logs. Machine learning models in this platform are trained on calibrated portfolio proxy targets using XGBoost to demonstrate enterprise analytics, propensity scoring, and automated decision playbooks.",
+            kind="warning",
+        ),
         unsafe_allow_html=True,
     )
 
@@ -1396,13 +765,14 @@ elif current_page == "Predictive AI Studio":
                 input_df = model_input_frame(sim_recency, sim_frequency, sim_monetary, sim_aov, sim_products, sim_age)
                 prob = float(churn_model.predict_proba(input_df)[0, 1])
                 band = "High Risk" if prob >= 0.65 else "Medium Risk" if prob >= 0.35 else "Low Risk"
-                band_color = "#EF4444" if prob >= 0.65 else "#F59E0B" if prob >= 0.35 else "#10B981"
+                band_color = COLOR_RED if prob >= 0.65 else COLOR_AMBER if prob >= 0.35 else COLOR_GREEN
 
                 with sim_col_r:
                     st.markdown("**Live Scenario Prediction Output:**")
-                    res_c1, res_c2 = st.columns(2)
-                    res_c1.metric("Predicted Churn Risk", format_pct(prob))
-                    res_c2.metric("Risk Classification", band)
+                    render_kpi_row([
+                        {"label": "Predicted Churn Risk", "value": format_pct(prob), "subtitle": "Propensity score"},
+                        {"label": "Risk Classification", "value": band, "subtitle": "Portfolio tier"},
+                    ])
 
                     act = retention_action(prob)
                     st.info(f"**Automated Retention Playbook:** {act['action']}")
@@ -1410,15 +780,15 @@ elif current_page == "Predictive AI Studio":
                     g_fig = go.Figure(go.Indicator(
                         mode="gauge+number",
                         value=100 * prob,
-                        number={"suffix": "%", "font": {"family": "JetBrains Mono"}},
-                        title={"text": "<b>Churn Propensity Meter</b>"},
+                        number={"suffix": "%", "font": {"family": "JetBrains Mono", "color": COLOR_SLATE}},
+                        title={"text": "<b>Churn Propensity Meter</b>", "font": {"color": COLOR_SLATE}},
                         gauge={
                             "axis": {"range": [0, 100]},
                             "bar": {"color": band_color},
                             "steps": [
-                                {"range": [0, 35], "color": "rgba(16,185,129,0.15)"},
-                                {"range": [35, 65], "color": "rgba(245,158,11,0.15)"},
-                                {"range": [65, 100], "color": "rgba(239,68,68,0.15)"},
+                                {"range": [0, 35], "color": "rgba(22,163,74,0.12)"},
+                                {"range": [35, 65], "color": "rgba(245,158,11,0.12)"},
+                                {"range": [65, 100], "color": "rgba(220,38,38,0.12)"},
                             ],
                         },
                     ))
@@ -1443,7 +813,7 @@ elif current_page == "Predictive AI Studio":
             fig_imp.update_layout(coloraxis_showscale=False)
             fig_imp.update_xaxes(title="Relative Importance Weight")
             fig_imp.update_yaxes(title=None)
-            chart(fig_imp, 280, legend="hidden", dark_mode=st.session_state.dark_mode)
+            style_chart(fig_imp, 280, legend="hidden")
 
     with pred_tab_clv:
         clv_model = load_model("clv_model.pkl")
@@ -1477,9 +847,10 @@ elif current_page == "Predictive AI Studio":
 
                 with clv_r:
                     st.markdown("**12-Month Forward Value Forecast:**")
-                    clv_c1, clv_c2 = st.columns(2)
-                    clv_c1.metric("Predicted 12M CLV", format_brl(est_clv))
-                    clv_c2.metric("Customer Value Tier", val_tier)
+                    render_kpi_row([
+                        {"label": "Predicted 12M CLV", "value": format_brl(est_clv), "subtitle": "Expected value"},
+                        {"label": "Customer Value Tier", "value": val_tier, "subtitle": "Cohort tier"},
+                    ])
 
                     st.markdown(f"**80% Planning Range:** `{format_brl(interval_low)}` — `{format_brl(interval_high)}`")
                     st.info("💡 **Commercial Strategy:** Prioritize premium VIP loyalty recognition, dedicated concierge support, and early access cross-sell." if "Platinum" in val_tier or "Gold" in val_tier else "💡 **Commercial Strategy:** Target with category cross-sell discounts to build order frequency.")
@@ -1492,14 +863,14 @@ elif current_page == "Predictive AI Studio":
             x="predicted_clv",
             nbins=40,
             title="Distribution of 12-Month Predicted CLV Across Customer Base",
-            color_discrete_sequence=[BRAND_TEAL],
+            color_discrete_sequence=[COLOR_PRIMARY],
         )
         fig_clv_dist.update_xaxes(title="Predicted CLV (BRL)")
         fig_clv_dist.update_yaxes(title="Customer Count")
-        chart(fig_clv_dist, 280, legend="hidden", dark_mode=st.session_state.dark_mode)
+        style_chart(fig_clv_dist, 280, legend="hidden")
 
     # Model Evaluation Benchmarks
-    st.markdown('<div class="section-header"><h3>Held-Out Model Benchmark Leaderboard</h3><span>Notebook 05 Cross-Validation Results</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><h3>Held-Out Model Benchmark Leaderboard</h3><span>Cross-Validation Results</span></div>', unsafe_allow_html=True)
     if not model_evaluation.empty:
         st.dataframe(model_evaluation, hide_index=True, use_container_width=True)
 
@@ -1523,11 +894,14 @@ elif current_page == "Experience & VoC Radar":
         nlp_col1, nlp_col2 = st.columns([0.45, 0.55])
         with nlp_col1:
             st.markdown("**Live Review Text NLP Classifier:**")
-            sample_text = st.text_area(
-                "Customer Review / Feedback",
-                value="The product arrived two days early, packaged securely, and exceeded my expectations!",
-                height=110,
-            )
+            sample_choices = [
+                "The product arrived two days early, packaged securely, and exceeded my expectations!",
+                "Average quality. It functions as described but delivery took longer than estimated.",
+                "Terrible experience. The package was damaged and the seller never replied to my message.",
+            ]
+            picked_template = st.selectbox("Pick Sample Review Text", ["Custom input...", *sample_choices])
+            user_text = picked_template if picked_template != "Custom input..." else "The product arrived two days early, packaged securely, and exceeded my expectations!"
+            sample_text = st.text_area("Customer Review / Feedback", value=user_text, height=95)
             nlp_btn = st.button("Classify Sentiment", icon=":material/sentiment_satisfied:", type="primary", use_container_width=True)
 
             sentiment_model = load_model("sentiment_model.pkl")
@@ -1535,12 +909,12 @@ elif current_page == "Experience & VoC Radar":
                 if sentiment_model is not None:
                     pred_label = sentiment_model.predict([sample_text])[0]
                     pred_prob = sentiment_model.predict_proba([sample_text])[0].max()
-                    pill_color = "#10B981" if pred_label == "Positive" else "#F59E0B" if pred_label == "Neutral" else "#EF4444"
+                    pill_color = COLOR_GREEN if pred_label == "Positive" else COLOR_AMBER if pred_label == "Neutral" else COLOR_RED
                     st.markdown(
                         f"""
-                        <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; margin-top: 10px;">
-                            <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Classification Result</div>
-                            <div style="font-size: 22px; font-weight: 800; color: {pill_color}; margin-top: 4px;">{pred_label} ({pred_prob:.1%} Confidence)</div>
+                        <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-top: 10px;">
+                            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Classification Result</div>
+                            <div style="font-size: 20px; font-weight: 800; color: {pill_color}; margin-top: 4px;">{pred_label} ({pred_prob:.1%} Confidence)</div>
                         </div>
                         """,
                         unsafe_allow_html=True,
@@ -1558,9 +932,9 @@ elif current_page == "Experience & VoC Radar":
                     hole=0.52,
                     title="Overall Review Sentiment Distribution",
                     color="sentiment_label",
-                    color_discrete_map={"Positive": BRAND_GREEN, "Neutral": BRAND_AMBER, "Negative": BRAND_CORAL},
+                    color_discrete_map={"Positive": COLOR_GREEN, "Neutral": COLOR_AMBER, "Negative": COLOR_RED},
                 )
-                chart(fig_sent_pie, 260, legend="bottom", dark_mode=st.session_state.dark_mode)
+                style_chart(fig_sent_pie, 260, legend="bottom")
 
         # Sentiment Trends & Explorer
         if not product_reviews.empty:
@@ -1578,11 +952,11 @@ elif current_page == "Experience & VoC Radar":
                     color="sentiment_label",
                     markers=True,
                     title="Review Volume by Sentiment Over Time",
-                    color_discrete_map={"Positive": BRAND_GREEN, "Neutral": BRAND_AMBER, "Negative": BRAND_CORAL},
+                    color_discrete_map={"Positive": COLOR_GREEN, "Neutral": COLOR_AMBER, "Negative": COLOR_RED},
                 )
                 fig_trend.update_xaxes(title="Month")
                 fig_trend.update_yaxes(title="Reviews")
-                chart(fig_trend, 280, legend="bottom", dark_mode=st.session_state.dark_mode)
+                style_chart(fig_trend, 280, legend="bottom")
 
                 st.markdown("**Sample Review Feedback Database:**")
                 st.dataframe(
@@ -1593,7 +967,14 @@ elif current_page == "Experience & VoC Radar":
                 )
 
     with exp_tab2:
-        st.markdown('<div class="insight-card"><p class="insight-desc">Marketing campaign logs represent synthetic event simulation to illustrate funnel stages, conversion drop-offs, and multi-channel ROI analysis.</p></div>', unsafe_allow_html=True)
+        st.markdown(
+            render_insight_card(
+                title="Attribution Modeling Notice",
+                description="Marketing campaign logs represent synthetic event simulation to illustrate funnel stages, conversion drop-offs, and multi-channel ROI analysis.",
+                kind="info",
+            ),
+            unsafe_allow_html=True,
+        )
         if not fact_campaign.empty and not dim_campaign.empty:
             camp_agg = (
                 fact_campaign.groupby("campaign_id", as_index=False)
@@ -1613,8 +994,8 @@ elif current_page == "Experience & VoC Radar":
 
             f_col1, f_col2 = st.columns(2)
             with f_col1:
-                fig_funnel = px.funnel(funnel_df, x="Audience", y="Stage", title="Omnichannel Campaign Conversion Funnel", color_discrete_sequence=[BRAND_TEAL])
-                chart(fig_funnel, 300, legend="hidden", dark_mode=st.session_state.dark_mode)
+                fig_funnel = px.funnel(funnel_df, x="Audience", y="Stage", title="Omnichannel Campaign Conversion Funnel", color_discrete_sequence=[COLOR_PRIMARY])
+                style_chart(fig_funnel, 300, legend="hidden")
 
             with f_col2:
                 fig_roi = px.bar(
@@ -1622,13 +1003,13 @@ elif current_page == "Experience & VoC Radar":
                     x="roi",
                     y="campaign_type",
                     orientation="h",
-                    title="Campaign Return on Investment (ROI)",
+                    title="Campaign Return on Investment (ROI Multiplier)",
                     color="roi",
-                    color_continuous_scale="Teal",
+                    color_continuous_scale="Blues",
                 )
                 fig_roi.update_xaxes(title="ROI Multiplier")
                 fig_roi.update_yaxes(title=None)
-                chart(fig_roi, 300, legend="hidden", dark_mode=st.session_state.dark_mode)
+                style_chart(fig_roi, 300, legend="hidden")
 
 
 # ==============================================================================
@@ -1657,16 +1038,12 @@ elif current_page == "Next-Best-Offer & Catalog":
             for i, (_, rec_row) in enumerate(rec_results.head(5).iterrows()):
                 with r_cols[i]:
                     st.markdown(
-                        f"""
-                        <div class="rec-card">
-                            <span class="rec-card-rank">#{int(rec_row['rank'])}</span>
-                            <div class="rec-card-title">{rec_row['recommended_category']}</div>
-                            <p class="rec-card-reason"><strong>Logic:</strong> {rec_row['reason']}</p>
-                            <div style="margin-top: 8px; font-size: 11px; color: var(--teal); font-weight: 600;">
-                                Engine: {rec_row.get('method', 'Basket Association')}
-                            </div>
-                        </div>
-                        """,
+                        render_recommendation_card(
+                            rank=int(rec_row["rank"]),
+                            category=str(rec_row["recommended_category"]),
+                            reason=str(rec_row["reason"]),
+                            method=str(rec_row.get("method", "Basket Association")),
+                        ),
                         unsafe_allow_html=True,
                     )
 
@@ -1679,9 +1056,9 @@ elif current_page == "Next-Best-Offer & Catalog":
                 y="Volume",
                 title="Recommendation Engine Logic Distribution",
                 color="Recommendation Method",
-                color_discrete_sequence=[BRAND_TEAL, BRAND_CORAL],
+                color_discrete_sequence=[COLOR_PRIMARY, COLOR_CYAN],
             )
-            chart(fig_method, 260, legend="hidden", dark_mode=st.session_state.dark_mode)
+            style_chart(fig_method, 260, legend="hidden")
         else:
             st.info("Recommendations dataset is loading.")
 
@@ -1713,12 +1090,12 @@ elif current_page == "Next-Best-Offer & Catalog":
                     orientation="h",
                     title="Top 10 Product Categories by Merchandise GMV",
                     color="revenue",
-                    color_continuous_scale="Teal",
+                    color_continuous_scale="Blues",
                 )
                 fig_top_cats.update_layout(coloraxis_showscale=False)
                 fig_top_cats.update_xaxes(title="Revenue (BRL)")
                 fig_top_cats.update_yaxes(title=None)
-                chart(fig_top_cats, 320, legend="hidden", dark_mode=st.session_state.dark_mode)
+                style_chart(fig_top_cats, 320, legend="hidden")
 
             with c_right:
                 if not sentiment.empty:
@@ -1735,7 +1112,7 @@ elif current_page == "Next-Best-Offer & Catalog":
                     fig_low_cats.update_layout(coloraxis_showscale=False)
                     fig_low_cats.update_xaxes(title="Average CSAT Rating (1-5)")
                     fig_low_cats.update_yaxes(title=None)
-                    chart(fig_low_cats, 320, legend="hidden", dark_mode=st.session_state.dark_mode)
+                    style_chart(fig_low_cats, 320, legend="hidden")
 
             st.markdown('<div class="section-header"><h3>Frequently Bought Together (Cross-Category Basket Rules)</h3></div>', unsafe_allow_html=True)
             st.dataframe(pairs_df, hide_index=True, use_container_width=True)
@@ -1747,6 +1124,8 @@ elif current_page == "Next-Best-Offer & Catalog":
 
 elif current_page == "Data Warehouse & SQL":
     fact_orders = load_csv("fact_orders.csv", ("purchase_date",))
+    fact_payments = load_csv("fact_payments.csv")
+    dim_product = load_csv("dim_product.csv")
     segment_summary = load_csv("segment_summary.csv")
     model_evaluation = load_csv("model_evaluation.csv")
     recommendations = load_csv("recommendations.csv")
@@ -1779,20 +1158,24 @@ elif current_page == "Data Warehouse & SQL":
     # Business Query Sandbox Runner
     st.markdown('<div class="section-header"><h3>Predefined Business Analytics Query Engine</h3><span>Instant SQL Analysis</span></div>', unsafe_allow_html=True)
 
-    q_controls = st.columns([0.5, 0.25, 0.25])
+    q_controls = st.columns([0.55, 0.45])
     query_choice = q_controls[0].selectbox(
         "Select Analytical Query",
         [
-            "Revenue by State & Region",
-            "Top Customer Segments by GMV",
-            "High-Risk Churn Customers",
-            "Highest-CLV VIP Customers",
+            "1. Revenue by State & Region",
+            "2. Top Cities by Merchandise Revenue",
+            "3. Category Repeat-Customer Rates",
+            "4. Monthly Revenue & Order Velocity Trend",
+            "5. Payment Method & Installment Analysis",
+            "6. High-Risk Churn Customers",
+            "7. Highest-CLV VIP Customers",
+            "8. RFM Segment GMV Performance",
         ],
     )
 
     valid_orders = fact_orders[~fact_orders["order_status"].isin(["canceled", "unavailable"])].copy() if not fact_orders.empty else pd.DataFrame()
 
-    if query_choice == "Revenue by State & Region":
+    if query_choice == "1. Revenue by State & Region":
         if not valid_orders.empty:
             q_result = (
                 customer_features[["customer_id", "state"]]
@@ -1803,12 +1186,63 @@ elif current_page == "Data Warehouse & SQL":
             )
         else:
             q_result = customer_features.groupby("state", as_index=False)["total_spend"].sum().rename(columns={"total_spend": "revenue"}).sort_values("revenue", ascending=False)
-    elif query_choice == "Top Customer Segments by GMV":
-        q_result = segment_summary.sort_values("revenue", ascending=False) if not segment_summary.empty else pd.DataFrame()
-    elif query_choice == "High-Risk Churn Customers":
-        q_result = customer_features[customer_features["churn_probability"] >= 0.65][["customer_id", "state", "rfm_segment", "total_spend", "predicted_clv", "churn_probability"]].sort_values("churn_probability", ascending=False).head(500)
+    elif query_choice == "2. Top Cities by Merchandise Revenue":
+        q_result = (
+            customer_features.groupby(["city", "state"], as_index=False)
+            .agg(customers=("customer_id", "nunique"), total_spend=("total_spend", "sum"))
+            .sort_values("total_spend", ascending=False)
+            .head(50)
+        )
+    elif query_choice == "3. Category Repeat-Customer Rates":
+        if not valid_orders.empty and not dim_product.empty:
+            cat_orders = valid_orders.merge(dim_product[["product_id", "category_name_english"]], on="product_id", how="left")
+            cat_cust = cat_orders.groupby(["category_name_english", "customer_id"])["order_id"].nunique().reset_index()
+            q_result = (
+                cat_cust.groupby("category_name_english", as_index=False)
+                .agg(total_customers=("customer_id", "count"), repeat_customers=("order_id", lambda s: (s > 1).sum()))
+            )
+            q_result["repeat_rate_pct"] = (100.0 * q_result["repeat_customers"] / q_result["total_customers"]).round(2)
+            q_result = q_result[q_result["total_customers"] >= 30].sort_values("repeat_rate_pct", ascending=False)
+        else:
+            q_result = pd.DataFrame()
+    elif query_choice == "4. Monthly Revenue & Order Velocity Trend":
+        if not valid_orders.empty:
+            valid_orders["month"] = valid_orders["purchase_date"].dt.to_period("M").astype(str)
+            q_result = (
+                valid_orders.groupby("month", as_index=False)
+                .agg(orders=("order_id", "nunique"), customers=("customer_id", "nunique"), revenue=("revenue", "sum"))
+                .sort_values("month")
+            )
+        else:
+            q_result = pd.DataFrame()
+    elif query_choice == "5. Payment Method & Installment Analysis":
+        if not fact_payments.empty:
+            q_result = (
+                fact_payments.groupby("payment_type", as_index=False)
+                .agg(
+                    transactions=("order_id", "count"),
+                    avg_installments=("payment_installments", "mean"),
+                    total_collected=("payment_value", "sum"),
+                )
+                .sort_values("total_collected", ascending=False)
+            )
+            q_result["avg_installments"] = q_result["avg_installments"].round(1)
+        else:
+            q_result = pd.DataFrame()
+    elif query_choice == "6. High-Risk Churn Customers":
+        q_result = (
+            customer_features[customer_features["churn_probability"] >= 0.65][
+                ["customer_id", "state", "rfm_segment", "total_spend", "predicted_clv", "churn_probability"]
+            ]
+            .sort_values("churn_probability", ascending=False)
+            .head(500)
+        )
+    elif query_choice == "7. Highest-CLV VIP Customers":
+        q_result = customer_features.nlargest(500, "predicted_clv")[
+            ["customer_id", "state", "rfm_segment", "total_spend", "predicted_clv", "clv_band"]
+        ]
     else:
-        q_result = customer_features.nlargest(500, "predicted_clv")[["customer_id", "state", "rfm_segment", "total_spend", "predicted_clv", "clv_band"]]
+        q_result = segment_summary.sort_values("revenue", ascending=False) if not segment_summary.empty else pd.DataFrame()
 
     q_controls[1].download_button(
         "Download Query Result (CSV)",
@@ -1825,16 +1259,19 @@ elif current_page == "Data Warehouse & SQL":
     page_size = s_col2.selectbox("Page Size", [10, 25, 50, 100], index=1)
 
     filtered_q = q_result.copy()
-    if table_search:
+    if table_search and not filtered_q.empty:
         mask = filtered_q.astype(str).apply(lambda col: col.str.contains(table_search, case=False, na=False)).any(axis=1)
         filtered_q = filtered_q[mask]
 
-    tot_pages = max(1, int(np.ceil(len(filtered_q) / page_size)))
+    tot_pages = max(1, int(np.ceil(len(filtered_q) / page_size))) if not filtered_q.empty else 1
     page_no = st.number_input("Page", min_value=1, max_value=tot_pages, value=1)
     start_idx = (page_no - 1) * page_size
 
-    st.dataframe(filtered_q.iloc[start_idx : start_idx + page_size], hide_index=True, use_container_width=True)
-    st.caption(f"Showing page {page_no} of {tot_pages} | {len(filtered_q):,} total records")
+    if not filtered_q.empty:
+        st.dataframe(filtered_q.iloc[start_idx : start_idx + page_size], hide_index=True, use_container_width=True)
+        st.caption(f"Showing page {page_no} of {tot_pages} | {len(filtered_q):,} total records")
+    else:
+        st.info("No records match the current query or search filter.")
 
     # SQL Library Viewer
     sql_file = SQL_DIR / "business_queries.sql"
@@ -1851,3 +1288,9 @@ elif current_page == "Data Warehouse & SQL":
             )
         else:
             st.warning("SQL business query catalog not found at `sql/business_queries.sql`.")
+
+# ==============================================================================
+# GLOBAL FOOTER
+# ==============================================================================
+
+render_footer()

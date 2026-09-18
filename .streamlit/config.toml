@@ -6,9 +6,9 @@ runOnSave = true
 
 [theme]
 base = "light"
-primaryColor = "#117A72"
-backgroundColor = "#F5F7F8"
+primaryColor = "#4F46E5"
+backgroundColor = "#F8FAFC"
 secondaryBackgroundColor = "#FFFFFF"
-textColor = "#1B3039"
+textColor = "#0F172A"
 font = "sans serif"
-baseRadius = "small"
+baseRadius = "medium"

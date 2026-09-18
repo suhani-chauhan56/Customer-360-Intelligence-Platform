@@ -48,6 +48,7 @@ from components.customer_profile import (
 from components.customer_table import render_customer_table
 from components.data_quality_card import render_system_health_modal
 from components.footer import render_footer
+from components.grounded_ai_card import render_grounded_answer
 from components.header import render_global_header, render_page_header
 from components.insight_card import render_structured_insight
 from components.methodology import render_methodology_panel
@@ -55,6 +56,7 @@ from components.metric_cards import render_kpi_row
 from components.sidebar import render_sidebar
 
 # Service Imports
+from services.grounded_ai_service import GroundedAIService
 from services.clv_service import (
     analyze_high_value_cohort,
     compute_clv_bins,
@@ -215,6 +217,17 @@ PAGE_META = {
             "Analyze customer concentration and repeat rate findings",
             "Compare any two individual customers side-by-side",
             "Evaluate operational and logistics satisfaction drivers",
+        ],
+    },
+    "Ask CustomerAtlas": {
+        "title": "Ask CustomerAtlas — Grounded AI Assistant",
+        "subtitle": "Safe natural-language analytics grounded 100% in factual metrics, database statistics, and verified ML models.",
+        "category": "AI & DECISION SUPPORT",
+        "guides": [
+            "Ask macro questions about customer revenue, repeat rates, and regional hubs",
+            "Identify vulnerable high-value customers at severe churn risk",
+            "Request evidence-backed risk explanations for specific customer IDs",
+            "Inspect segment strategic playbooks and commercial value drivers",
         ],
     },
 }
@@ -1393,8 +1406,115 @@ elif current_page == "Customer Insights":
         ]
         st.dataframe(pd.DataFrame(comparison_rows), hide_index=True, use_container_width=True)
 
+
+# ==============================================================================
+# WORKSPACE 9: ASK CUSTOMERATLAS (GROUNDED AI ASSISTANT)
+# ==============================================================================
+
+elif current_page == "Ask CustomerAtlas":
+    st.markdown(
+        """
+        <div style="background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%); border-radius: 10px; padding: 24px; color: white; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                <span style="font-size: 24px;">🧭</span>
+                <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #FFFFFF;">Ask CustomerAtlas — Grounded Decision Support</h2>
+            </div>
+            <p style="margin: 0; font-size: 13.5px; color: #C7D2FE; line-height: 1.5; max-width: 900px;">
+                Ask questions in plain English to interrogate customer metrics, revenue concentration, at-risk cohorts, and lifecycle transitions.
+                Every response is <strong>100% mathematically grounded in verified database records</strong> with zero hallucinated figures or unconstrained code execution.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    ai_service = GroundedAIService(filtered)
+
+    # Preset Quick-Prompt Question Buttons
+    st.markdown("**Suggested Decision Inquiries:**")
+    q_col1, q_col2, q_col3 = st.columns(3)
+    preset_query = None
+    with q_col1:
+        if st.button("🚨 Which customers are high-value and high-risk?", use_container_width=True):
+            preset_query = "Which customers are high-value and high-risk?"
+        if st.button("📊 Which segment generates the most revenue?", use_container_width=True):
+            preset_query = "Which segment generates the most revenue?"
+    with q_col2:
+        if st.button("🔄 What is our repeat customer purchase rate?", use_container_width=True):
+            preset_query = "What is our repeat customer purchase rate?"
+        if st.button("💎 What is the 12-month forward CLV benchmark?", use_container_width=True):
+            preset_query = "What is the 12-month forward CLV benchmark?"
+    with q_col3:
+        if st.button("🗺️ Which geographic regions drive top demand?", use_container_width=True):
+            preset_query = "Which geographic regions drive top demand?"
+        if st.button("📈 What are our macro customer metrics?", use_container_width=True):
+            preset_query = "What are our macro customer metrics?"
+
+    # Context Customer Selector (Optional)
+    c_opts = ["None (General Portfolio Query)", *sorted(filtered["customer_id"].dropna().unique().tolist()[:100])]
+    sel_ctx_cid = st.selectbox(
+        "Optional: Focus on Specific Customer Context",
+        c_opts,
+        index=0,
+        help="Select a specific customer ID to ask detailed diagnostic and risk explanation questions.",
+    )
+    ctx_cid = None if "None" in sel_ctx_cid else sel_ctx_cid
+
+    # Query Input Form
+    with st.form("ask_atlas_query_form"):
+        user_query = st.text_input(
+            "Enter your question for CustomerAtlas:",
+            value=preset_query or "",
+            placeholder="e.g. Which customers are high-value and high-risk? or Explain risk for this customer",
+        )
+        submit_ask = st.form_submit_button("Analyze & Ground Answer", type="primary", use_container_width=True)
+
+    active_prompt = preset_query or (user_query if submit_ask else None)
+
+    if active_prompt:
+        with st.spinner("Analyzing verified customer dataset & synthesizing grounded evidence..."):
+            ans = ai_service.ask(active_prompt, context_customer_id=ctx_cid)
+            render_grounded_answer(ans)
+
+            # Log audit event
+            from services.audit_service import record_audit_event
+            record_audit_event(
+                action="grounded_ai_query",
+                resource_type="analytics_query",
+                resource_id=ans.intent,
+                details={"query": active_prompt, "intent": ans.intent},
+                status="success",
+            )
+    else:
+        st.markdown(
+            """
+            <div style="background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 8px; padding: 30px; text-align: center; margin-top: 10px;">
+                <div style="font-size: 28px; margin-bottom: 8px;">💡</div>
+                <div style="font-size: 15px; font-weight: 700; color: #334155;">Ready for Customer Inquiries</div>
+                <p style="font-size: 13px; color: #64748B; max-width: 600px; margin: 6px auto 0;">
+                    Select one of the suggested inquiry buttons above or type any question into the input field to generate evidence-backed analytics answers.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # Transparency & Anti-Hallucination Policy
+    with st.expander("Grounded AI Architecture & Safety Policy", expanded=False, icon=":material/security:"):
+        st.markdown(
+            """
+            ### Safety & Anti-Hallucination Framework
+            1. **No Unrestricted SQL / Code Generation:** User questions are mapped to approved, parameterized deterministic tools to prevent SQL injection and runtime errors.
+            2. **Direct Data Verification:** Every metric is computed against real verified data files in the Customer Feature Store (`data/processed/`).
+            3. **Causal Transparency:** Model outputs strictly use *contributed to prediction* attribution rather than asserting unverifiable causal claims.
+            4. **Audit Logging:** Every AI question is logged to the enterprise audit trail for governance and compliance.
+            """
+        )
+
+
 # ==============================================================================
 # GLOBAL FOOTER
 # ==============================================================================
 
 render_footer()
+

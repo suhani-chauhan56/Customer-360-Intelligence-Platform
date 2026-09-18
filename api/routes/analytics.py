@@ -1,9 +1,6 @@
-"""Executive Analytics and Insights API endpoints for CustomerAtlas."""
-
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException
-from api.dependencies import require_permission
 from api.schemas.analytics_schemas import (
+    AskAtlasRequestSchema,
+    AskAtlasResponseSchema,
     PortfolioOverviewSchema,
     RecommendationItemSchema,
     StructuredInsightSchema,
@@ -11,11 +8,49 @@ from api.schemas.analytics_schemas import (
 from api.schemas.common import APIResponse
 from security.auth import UserContext
 from security.rbac import Permission
+from services.audit_service import record_audit_event
 from services.data_service import load_csv
+from services.grounded_ai_service import GroundedAIService
 from services.insight_service import generate_executive_insights
 from services.recommendation_service import get_customer_recommendations
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
+
+
+@router.post("/ask", response_model=APIResponse[AskAtlasResponseSchema])
+def ask_customer_atlas(
+    request: AskAtlasRequestSchema,
+    current_user: UserContext = Depends(require_permission(Permission.VIEW_ANALYTICS)),
+):
+    """Interrogate customer analytics using grounded, deterministic natural-language tools."""
+    df = load_csv("customer_360_features.csv")
+    if df.empty:
+        raise HTTPException(status_code=503, detail="Customer dataset unavailable.")
+
+    ai_service = GroundedAIService(df)
+    ans = ai_service.ask(request.query, context_customer_id=request.context_customer_id)
+
+    record_audit_event(
+        action="api_grounded_ai_query",
+        resource_type="analytics_query",
+        resource_id=ans.intent,
+        details={"query": request.query, "intent": ans.intent, "user": current_user.user_id},
+        status="success",
+    )
+
+    data = AskAtlasResponseSchema(
+        query=ans.query,
+        intent=ans.intent,
+        headline=ans.headline,
+        detailed_answer=ans.detailed_answer,
+        metrics=ans.metrics,
+        evidence_points=ans.evidence_points,
+        recommended_action=ans.recommended_action,
+        data_source=ans.data_source,
+        confidence_rating=ans.confidence_rating,
+        limitations_disclaimer=ans.limitations_disclaimer,
+    )
+    return APIResponse(success=True, data=data)
 
 
 @router.get("/overview", response_model=APIResponse[PortfolioOverviewSchema])

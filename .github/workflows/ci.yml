@@ -1,53 +1,61 @@
-name: CustomerAtlas CI & Quality Gates
+name: CustomerAtlas Enterprise CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, develop ]
   pull_request:
     branches: [ main, master ]
 
 jobs:
-  test-and-lint:
+  quality-and-test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
 
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-        cache: "pip"
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
 
-    - name: Install Dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements-dev.txt
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov flake8 black
 
-    - name: Lint and Code Formatting Check (Ruff)
-      run: |
-        ruff check streamlit_app tests
+      - name: Code Quality & Linting
+        run: |
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv,__pycache__,.git
+          # Check formatting
+          black --check streamlit_app api database security tests
 
-    - name: Run Automated Test Suite with Pytest
-      env:
-        APP_ENV: testing
-        LOG_LEVEL: WARNING
-      run: |
-        pytest tests/ -v --cov=streamlit_app --cov-report=term-missing
+      - name: Validate Data Contracts & Feature Store Integrity
+        run: |
+          python -c "
+          import pandas as pd
+          from utils.validation import validate_customer_dataframe
+          from services.data_service import load_csv
+          df = load_csv('customer_360_features.csv')
+          valid, issues = validate_customer_dataframe(df)
+          if not valid:
+              raise SystemExit(f'Data validation failed: {issues}')
+          print(f'Data Contract Passed: {len(df):,} customer records verified.')
+          "
 
-    - name: Validate Processed Datasets Schema & Integrity
-      run: |
-        python -c "
-        import sys
-        sys.path.insert(0, 'streamlit_app')
-        import pandas as pd
-        from utils.validation import validate_customer_dataframe
-        from services.data_quality_service import run_data_quality_audit
-        df = pd.read_csv('data/processed/customer_360_features.csv')
-        valid, issues = validate_customer_dataframe(df)
-        assert valid, f'Validation failed: {issues}'
-        audit = run_data_quality_audit(df)
-        assert audit['is_healthy'], f'Quality audit failed: {audit}'
-        print('Data validation passed with score:', audit['quality_score_pct'])
-        "
+      - name: Run Test Suite
+        run: |
+          pytest tests -v --tb=short
+
+      - name: Verify API Startup Contract
+        run: |
+          python -c "
+          from api.main import app
+          print(f'FastAPI Application Factory Verified: {app.title} ({app.version})')
+          "

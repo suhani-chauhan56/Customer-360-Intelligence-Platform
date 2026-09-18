@@ -67,6 +67,10 @@ from services.audit_service import (
     record_audit_event,
     get_recent_audit_events,
 )
+from services.grounded_ai_service import (
+    GroundedAIService,
+    GroundedAnswer,
+)
 
 __all__ = [
     "load_csv",
@@ -112,4 +116,6 @@ __all__ = [
     "explain_individual_prediction",
     "record_audit_event",
     "get_recent_audit_events",
+    "GroundedAIService",
+    "GroundedAnswer",
 ]

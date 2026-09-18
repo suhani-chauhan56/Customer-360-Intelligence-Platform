@@ -34,3 +34,23 @@ class RecommendationItemSchema(BaseModel):
     recommended_category: str
     reason: str
     method: str
+
+
+class AskAtlasRequestSchema(BaseModel):
+    """Request schema for grounded natural language analytics inquiries."""
+    query: str
+    context_customer_id: Optional[str] = None
+
+
+class AskAtlasResponseSchema(BaseModel):
+    """Evidence-grounded response schema for natural language inquiries."""
+    query: str
+    intent: str
+    headline: str
+    detailed_answer: str
+    metrics: Dict[str, Any]
+    evidence_points: List[str]
+    recommended_action: Optional[str] = None
+    data_source: str
+    confidence_rating: str
+    limitations_disclaimer: str

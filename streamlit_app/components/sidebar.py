@@ -42,9 +42,10 @@ NAV_SECTIONS: List[Tuple[str, List[Tuple[str, str, str]]]] = [
         ],
     ),
     (
-        "INSIGHTS",
+        "INSIGHTS & AI",
         [
             ("Customer Insights", "Customer Insights", ":material/lightbulb:"),
+            ("Ask CustomerAtlas", "Ask CustomerAtlas", ":material/psychology:"),
         ],
     ),
 ]

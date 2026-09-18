@@ -1,0 +1,28 @@
+{
+  "model_name": "Customer Churn Propensity Classifier",
+  "version": "1.0.0",
+  "artifact_file": "churn_model.pkl",
+  "algorithm": "XGBoost Classifier",
+  "training_framework": "xgboost / scikit-learn",
+  "random_state": 42,
+  "features": [
+    "recency_days",
+    "frequency",
+    "monetary",
+    "avg_order_value",
+    "number_of_products",
+    "customer_age_days"
+  ],
+  "target": "calibrated_churn_label",
+  "evaluation_metrics": {
+    "roc_auc": 0.666,
+    "accuracy": 0.642,
+    "f1_score": 0.638
+  },
+  "classification_thresholds": {
+    "low_risk_max": 0.35,
+    "high_risk_min": 0.65
+  },
+  "provenance": "Trained on canonical Olist transaction intervals and validated in Notebook 04.",
+  "data_contract_notice": "Calibrated inactivity propensity proxy; does not represent realized contractual subscription churn."
+}

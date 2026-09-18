@@ -1,0 +1,10 @@
+column,inferred_dtype,missing_pct_sample,unique_values_sample,example_value
+event_time,str,0.0,7009,2019-12-01 00:00:00 UTC
+event_type,str,0.0,4,remove_from_cart
+product_id,int64,0.0,4441,5712790
+category_id,int64,0.0,316,1487580005268456287
+category_code,str,98.57,7,furniture.bathroom.bath
+brand,str,44.13,150,f.o.x
+price,float64,0.0,724,6.27
+user_id,int64,0.0,1450,576802932
+user_session,str,0.09,2410,51d85cb0-897f-48d2-918b-ad63965c12dc

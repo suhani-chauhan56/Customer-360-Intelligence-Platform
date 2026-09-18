@@ -2,7 +2,7 @@
 
 Provides cached access to processed warehouse facts, customer feature store,
 dimensional tables, precomputed recommendations, and ML model inference artifacts.
-Guarantees analytical fidelity and calculation consistency.
+Guarantees analytical fidelity, configuration-driven paths, and calculation consistency.
 """
 
 from datetime import datetime
@@ -14,13 +14,10 @@ import joblib
 import pandas as pd
 import streamlit as st
 
+from config.settings import DATA_DIR, MODELS_DIR, SQL_DIR, CACHE_TTL_SECONDS
 from utils.formatting import format_brl, format_pct
+from utils.logging_config import logger
 
-# Repository Directories
-ROOT = Path(__file__).resolve().parents[2]
-PROCESSED = ROOT / "data" / "processed"
-MODELS = ROOT / "models"
-SQL_DIR = ROOT / "sql"
 
 MODEL_COLUMNS = [
     "recency_days",
@@ -32,15 +29,19 @@ MODEL_COLUMNS = [
 ]
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
 def load_csv(name: str, parse_dates: Tuple[str, ...] = ()) -> pd.DataFrame:
     """Load and cache CSV datasets from the processed data directory."""
-    path = PROCESSED / name
+    path = DATA_DIR / name
     if not path.exists():
+        logger.warning(f"Dataset file not found at {path}")
         return pd.DataFrame()
     try:
-        return pd.read_csv(path, parse_dates=list(parse_dates))
+        df = pd.read_csv(path, parse_dates=list(parse_dates))
+        logger.info(f"Loaded dataset {name}: {len(df):,} rows, {len(df.columns)} cols")
+        return df
     except Exception as e:
+        logger.error(f"Error loading {name}: {e}", exc_info=True)
         st.warning(f"Error loading {name}: {e}")
         return pd.DataFrame()
 
@@ -48,12 +49,16 @@ def load_csv(name: str, parse_dates: Tuple[str, ...] = ()) -> pd.DataFrame:
 @st.cache_resource(show_spinner=False)
 def load_model(name: str) -> Optional[Any]:
     """Load and cache serialized machine learning models from the models directory."""
-    path = MODELS / name
+    path = MODELS_DIR / name
     if not path.exists():
+        logger.warning(f"Model file not found at {path}")
         return None
     try:
-        return joblib.load(path)
-    except Exception:
+        model = joblib.load(path)
+        logger.info(f"Loaded ML model: {name}")
+        return model
+    except Exception as e:
+        logger.error(f"Error loading model {name}: {e}", exc_info=True)
         return None
 
 
@@ -74,33 +79,8 @@ def model_input_frame(
 
 def retention_action(probability: float, segment: str = "") -> Dict[str, str]:
     """Derive automated retention playbook actions based on churn propensity and segment."""
-    if probability >= 0.65:
-        return {
-            "tier": "Critical Priority",
-            "badge_color": "#DC2626",
-            "action": "Immediate VIP retention outreach. Review logistics friction and deploy a personalized win-back voucher.",
-            "urgency": "High",
-        }
-    if probability >= 0.35:
-        return {
-            "tier": "Moderate Risk",
-            "badge_color": "#F59E0B",
-            "action": "Target with a tailored category re-engagement campaign. Highlight top-rated new arrivals in their favorite category.",
-            "urgency": "Medium",
-        }
-    if segment in {"Champions", "Loyal Customers"}:
-        return {
-            "tier": "Advocate / Protect",
-            "badge_color": "#16A34A",
-            "action": "Reward loyalty with exclusive early-access perks and cross-sell premium complementary categories.",
-            "urgency": "Low (Growth)",
-        }
-    return {
-        "tier": "Standard Growth",
-        "badge_color": "#4F46E5",
-        "action": "Encourage second purchase journey with streamlined discovery and first-repeat free shipping incentive.",
-        "urgency": "Low",
-    }
+    from config.business_rules import get_retention_playbook
+    return get_retention_playbook(probability, segment)
 
 
 def build_customer_pdf(profile: pd.Series) -> bytes:
@@ -181,4 +161,5 @@ def build_customer_pdf(profile: pd.Series) -> bytes:
         doc.build(elements)
         return buffer.getvalue()
     except Exception as e:
+        logger.error(f"Error generating PDF dossier: {e}", exc_info=True)
         return f"PDF generation error: {e}".encode("utf-8")

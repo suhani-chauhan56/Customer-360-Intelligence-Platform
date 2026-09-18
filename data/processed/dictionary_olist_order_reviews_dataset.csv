@@ -1,0 +1,8 @@
+column,inferred_dtype,missing_pct_sample,unique_values_sample,example_value
+review_id,str,0.0,9993,7bc2406110b926393aa56f80a40eba40
+order_id,str,0.0,9995,73fc7af87114b39712e6da79b0a377eb
+review_score,int64,0.0,5,4
+review_comment_title,str,88.1,676,recomendo
+review_comment_message,str,58.2,3911,Recebi bem antes do prazo estipulado.
+review_creation_date,str,0.0,555,2018-01-18 00:00:00
+review_answer_timestamp,str,0.0,9989,2018-01-18 21:46:59

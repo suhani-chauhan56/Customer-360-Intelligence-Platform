@@ -1,0 +1,22 @@
+column,inferred_dtype,missing_pct_sample,unique_values_sample,example_value
+id,str,0.0,10,AVqkIhwDv8e3D1O-lebb
+name,str,0.0,11,"All-New Fire HD 8 Tablet, 8 HD Display, Wi-Fi, 16 GB - Includes Special Offers, Magenta"
+asins,str,0.0,10,B01AHB9CN2
+brand,str,0.0,1,Amazon
+categories,str,0.0,10,"Electronics,iPad & Tablets,All Tablets,Fire Tablets,Tablets,Computers & Tablets"
+keys,str,0.0,10,"841667104676,amazon/53004484,amazon/b01ahb9cn2,0841667104676,allnewfirehd8tablet8hddisplaywifi16gbincludesspecialoffersmagenta/5620406,allnewfirehd8tablet8hddisplaywifi16gbincludesspecialoffersmagenta/b01ahb9cn2"
+manufacturer,str,0.0,1,Amazon
+reviews.date,str,0.09,660,2017-01-13T00:00:00.000Z
+reviews.dateAdded,str,6.42,1173,2017-07-03T23:33:15Z
+reviews.dateSeen,str,0.0,279,"2017-06-07T09:04:00.000Z,2017-04-30T00:45:00.000Z"
+reviews.didPurchase,float64,100.0,0,
+reviews.doRecommend,object,4.3,2,True
+reviews.id,float64,100.0,0,
+reviews.numHelpful,float64,4.22,37,0.0
+reviews.rating,float64,0.23,5,5.0
+reviews.sourceURLs,str,0.0,2535,"http://reviews.bestbuy.com/3545/5620406/reviews.htm?format=embedded&page=200,http://reviews.bestbuy.com/3545/5620406/reviews.htm?format=embedded&page=166"
+reviews.text,str,0.01,9999,This product so far has not disappointed. My children love to use it and I like the ability to monitor control what content they see with ease.
+reviews.title,str,0.01,5991,Kindle
+reviews.userCity,float64,100.0,0,
+reviews.userProvince,float64,100.0,0,
+reviews.username,str,0.03,8571,Adapter

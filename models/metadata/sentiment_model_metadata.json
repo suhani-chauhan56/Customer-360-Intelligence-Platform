@@ -1,0 +1,18 @@
+{
+  "model_name": "Review Text Sentiment Classifier",
+  "version": "1.0.0",
+  "artifact_file": "sentiment_model.pkl",
+  "algorithm": "TF-IDF Vectorizer + Multinomial / Logistic Classifier",
+  "training_framework": "scikit-learn",
+  "random_state": 42,
+  "classes": [
+    "Positive",
+    "Neutral",
+    "Negative"
+  ],
+  "evaluation_metrics": {
+    "accuracy": 0.855,
+    "weighted_f1": 0.883
+  },
+  "provenance": "Trained on Voice of Customer product reviews dataset and validated in Notebook 05."
+}

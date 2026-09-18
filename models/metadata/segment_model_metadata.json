@@ -1,0 +1,17 @@
+{
+  "model_name": "Behavioral Customer Clustering Pipeline",
+  "version": "1.0.0",
+  "artifact_file": "segment_model.pkl",
+  "algorithm": "K-Means Pipeline with StandardScaler",
+  "training_framework": "scikit-learn",
+  "random_state": 42,
+  "clusters": 5,
+  "cluster_labels": [
+    "Inactive Buyers",
+    "High-Value Core",
+    "Regular Buyers",
+    "Digitally Engaged",
+    "Growth Potential"
+  ],
+  "provenance": "Behavioral segmentation built on transaction and clickstream features in Notebook 03."
+}

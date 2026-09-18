@@ -1,0 +1,53 @@
+name: CustomerAtlas CI & Quality Gates
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: "pip"
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-dev.txt
+
+    - name: Lint and Code Formatting Check (Ruff)
+      run: |
+        ruff check streamlit_app tests
+
+    - name: Run Automated Test Suite with Pytest
+      env:
+        APP_ENV: testing
+        LOG_LEVEL: WARNING
+      run: |
+        pytest tests/ -v --cov=streamlit_app --cov-report=term-missing
+
+    - name: Validate Processed Datasets Schema & Integrity
+      run: |
+        python -c "
+        import sys
+        sys.path.insert(0, 'streamlit_app')
+        import pandas as pd
+        from utils.validation import validate_customer_dataframe
+        from services.data_quality_service import run_data_quality_audit
+        df = pd.read_csv('data/processed/customer_360_features.csv')
+        valid, issues = validate_customer_dataframe(df)
+        assert valid, f'Validation failed: {issues}'
+        audit = run_data_quality_audit(df)
+        assert audit['is_healthy'], f'Quality audit failed: {audit}'
+        print('Data validation passed with score:', audit['quality_score_pct'])
+        "

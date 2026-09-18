@@ -1,0 +1,30 @@
+{
+  "model_name": "12-Month Forward Customer Lifetime Value Regressor",
+  "version": "1.0.0",
+  "artifact_file": "clv_model.pkl",
+  "algorithm": "XGBoost Regressor",
+  "training_framework": "xgboost / scikit-learn",
+  "random_state": 42,
+  "features": [
+    "recency_days",
+    "frequency",
+    "monetary",
+    "avg_order_value",
+    "number_of_products",
+    "customer_age_days"
+  ],
+  "target": "predicted_12m_clv_brl",
+  "evaluation_metrics": {
+    "r2_score": 0.918,
+    "mae_brl": 38.15,
+    "rmse_brl": 72.40
+  },
+  "value_bands": {
+    "platinum": "Top 25% predicted CLV",
+    "gold": "50th to 75th percentile",
+    "silver": "25th to 50th percentile",
+    "bronze": "Bottom 25% predicted CLV"
+  },
+  "provenance": "Trained on historical customer spend trajectories and validated in Notebook 04.",
+  "data_contract_notice": "Forward 12-month value proxy for prioritization; does not guarantee realized future transactions."
+}

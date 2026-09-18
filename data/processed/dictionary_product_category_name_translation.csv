@@ -1,0 +1,3 @@
+column,inferred_dtype,missing_pct_sample,unique_values_sample,example_value
+product_category_name,str,0.0,71,beleza_saude
+product_category_name_english,str,0.0,71,health_beauty

@@ -1,0 +1,6 @@
+column,inferred_dtype,missing_pct_sample,unique_values_sample,example_value
+order_id,str,0.0,9921,b81ef226f3fe1789b1e8b2acac839d17
+payment_sequential,int64,0.0,18,1
+payment_type,str,0.0,4,credit_card
+payment_installments,int64,0.0,18,8
+payment_value,float64,0.0,7052,99.33

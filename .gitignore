@@ -1,15 +1,68 @@
-.venv/
-.ipynb_checkpoints/
+# Byte-compiled / optimized / DLL files
 __pycache__/
-.pytest_cache/
 *.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
 .env
-*.log
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
-# Local source data, generated extracts, and model artifacts
-data/raw/*.csv
-data/processed/*.csv
-models/*.pkl
-
-# Local notebook and app state
+# Streamlit specific
 .streamlit/secrets.toml
+
+# IDE and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing and Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# Local logs and temporary files
+*.log
+scratch/
+tmp/
+temp/
+
+data/raw/ecommerce_events_2019_dec.csv

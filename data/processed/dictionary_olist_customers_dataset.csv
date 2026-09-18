@@ -1,0 +1,6 @@
+column,inferred_dtype,missing_pct_sample,unique_values_sample,example_value
+customer_id,str,0.0,10000,06b8999e2fba1a1fbc88172c00ba8bc7
+customer_unique_id,str,0.0,9964,861eff4711a542e4b93843c6dd7febb0
+customer_zip_code_prefix,int64,0.0,5878,14409
+customer_city,str,0.0,1594,franca
+customer_state,str,0.0,27,SP

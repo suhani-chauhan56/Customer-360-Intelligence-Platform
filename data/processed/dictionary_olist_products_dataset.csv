@@ -1,0 +1,10 @@
+column,inferred_dtype,missing_pct_sample,unique_values_sample,example_value
+product_id,str,0.0,10000,1e9e8ef04dbcff4541ed26657ea517e5
+product_category_name,str,1.88,72,perfumaria
+product_name_lenght,float64,1.88,59,40.0
+product_description_lenght,float64,1.88,2140,287.0
+product_photos_qty,float64,1.88,17,1.0
+product_weight_g,float64,0.01,1203,225.0
+product_length_cm,float64,0.01,96,16.0
+product_height_cm,float64,0.01,95,10.0
+product_width_cm,float64,0.01,83,14.0

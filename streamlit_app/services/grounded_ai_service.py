@@ -20,7 +20,12 @@ import numpy as np
 
 from utils.formatting import format_brl, format_pct, format_num
 from services.customer_service import get_customer_profile, diagnose_customer_risk_factors
-from services.health_score_service import calculate_health_score, get_lifecycle_stage
+from services.health_score_service import (
+    calculate_customer_health_score,
+    classify_lifecycle_state,
+    calculate_health_score,
+    get_lifecycle_stage,
+)
 from services.rfm_service import get_segment_playbook
 
 

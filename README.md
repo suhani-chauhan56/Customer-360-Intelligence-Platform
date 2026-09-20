@@ -27,6 +27,8 @@ Modern e-commerce and B2B SaaS organizations suffer from **fragmented customer v
 
 ## 2. Enterprise System Architecture
 
+hello
+
 ```mermaid
 flowchart TD
     subgraph Client_Layer ["Presentation & Ingestion Layer"]

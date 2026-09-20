@@ -10,7 +10,27 @@ import pandas as pd
 from utils.formatting import format_brl, format_pct
 
 
-def calculate_customer_health_score(profile: pd.Series) -> Dict[str, Any]:
+class HealthScoreResult(dict):
+    """Dictionary supporting both key and property access for health score."""
+
+    @property
+    def total_score(self) -> float:
+        return float(self.get("score", 0.0))
+
+    @property
+    def grade(self) -> str:
+        return str(self.get("health_tier", ""))
+
+
+class LifecycleStateResult(dict):
+    """Dictionary supporting both key and property access for lifecycle state."""
+
+    @property
+    def value(self) -> str:
+        return str(self.get("lifecycle_state", ""))
+
+
+def calculate_customer_health_score(profile: pd.Series) -> HealthScoreResult:
     """Calculate the transparent, 6-factor Customer Health Score (0-100).
 
     Formula:
@@ -60,7 +80,7 @@ def calculate_customer_health_score(profile: pd.Series) -> Dict[str, Any]:
     else:
         health_tier, color = "Critical 🔴", "#DC2626"
 
-    return {
+    return HealthScoreResult({
         "score": final_score,
         "health_tier": health_tier,
         "badge_color": color,
@@ -73,10 +93,10 @@ def calculate_customer_health_score(profile: pd.Series) -> Dict[str, Any]:
             "Churn Risk Penalty": round(risk_penalty, 1),
         },
         "formula": "Score = 0.25*R + 0.25*F + 0.25*M + 0.15*Eng + 0.10*CSAT - 0.20*Risk",
-    }
+    })
 
 
-def classify_lifecycle_state(profile: pd.Series) -> Dict[str, Any]:
+def classify_lifecycle_state(profile: pd.Series) -> LifecycleStateResult:
     """Classify customer into the 6-stage operational lifecycle state machine.
 
     Stages:
@@ -118,10 +138,15 @@ def classify_lifecycle_state(profile: pd.Series) -> Dict[str, Any]:
         description = "Baseline customer who has completed initial transaction cycle."
         badge_color = "#4F46E5"
 
-    return {
+    return LifecycleStateResult({
         "lifecycle_state": state,
         "description": description,
         "badge_color": badge_color,
         "orders": orders,
         "recency_days": recency,
-    }
+    })
+
+
+# Aliases for backwards compatibility
+calculate_health_score = calculate_customer_health_score
+get_lifecycle_stage = classify_lifecycle_state

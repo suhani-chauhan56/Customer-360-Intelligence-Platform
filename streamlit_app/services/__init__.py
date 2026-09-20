@@ -51,6 +51,8 @@ from services.recommendation_service import (
 from services.health_score_service import (
     calculate_customer_health_score,
     classify_lifecycle_state,
+    calculate_health_score,
+    get_lifecycle_stage,
 )
 from services.drift_service import (
     calculate_psi,
@@ -109,6 +111,8 @@ __all__ = [
     "summarize_recommendation_methods",
     "calculate_customer_health_score",
     "classify_lifecycle_state",
+    "calculate_health_score",
+    "get_lifecycle_stage",
     "calculate_psi",
     "run_feature_drift_audit",
     "simulate_customer_value_shift",

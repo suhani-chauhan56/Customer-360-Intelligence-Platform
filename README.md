@@ -172,16 +172,22 @@ pip install -r requirements.txt
 
 ### 2. Launch the Streamlit Web Application
 ```powershell
-streamlit run streamlit_app/app.py --server.port 8501
+streamlit run app.py --server.port 8501
 ```
+*(or `streamlit run streamlit_app/app.py`)*
 
 ### 3. Launch the FastAPI REST Server
 ```powershell
 uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
-*Access interactive API documentation at `http://localhost:8000/docs`.*
+*Access interactive API documentation at `http://localhost:8000/api/docs`.*
 
-### 4. Run Automated Test Suite
+### 4. Run Standalone Python Analytics Pipeline
+```powershell
+python analytics.py
+```
+
+### 5. Run Automated Pytest Suite
 ```powershell
 pytest tests -v
 ```

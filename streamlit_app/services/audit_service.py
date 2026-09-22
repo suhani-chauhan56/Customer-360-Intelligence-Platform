@@ -4,8 +4,9 @@ Provides structured logging of security, analytical, and operational events
 with dual-mode database repository persistence and fallback in-memory/file streaming.
 """
 
+import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from utils.logging_config import logger
 
 
@@ -19,17 +20,22 @@ def record_audit_event(
     user_id: str = "usr_analyst",
     org_id: str = "default_org",
     resource_id: Optional[str] = None,
-    details: Optional[str] = None,
+    details: Optional[Union[str, Dict[str, Any]]] = None,
     ip_address: Optional[str] = None,
+    status: Optional[str] = "success",
+    **kwargs: Any,
 ) -> Dict[str, Any]:
     """Record an enterprise compliance and operational audit log event."""
+    details_str = json.dumps(details) if isinstance(details, (dict, list)) else (str(details) if details is not None else None)
+
     event = {
         "action": action,
         "resource_type": resource_type,
         "user_id": user_id,
         "org_id": org_id,
         "resource_id": resource_id,
-        "details": details,
+        "details": details_str,
+        "status": status or "success",
         "ip_address": ip_address or "127.0.0.1",
         "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
     }
@@ -47,7 +53,7 @@ def record_audit_event(
                 org_id=org_id,
                 user_id=user_id,
                 resource_id=resource_id,
-                details=details,
+                details=details_str,
                 ip_address=ip_address,
             )
     except Exception as e:
@@ -58,7 +64,7 @@ def record_audit_event(
     if len(_TRANSIENT_AUDIT_BUFFER) > 500:
         _TRANSIENT_AUDIT_BUFFER.pop()
 
-    logger.info(f"AUDIT | {action} | resource={resource_type}:{resource_id} | user={user_id}")
+    logger.info(f"AUDIT | {action} | resource={resource_type}:{resource_id} | status={status} | user={user_id}")
     return event
 
 

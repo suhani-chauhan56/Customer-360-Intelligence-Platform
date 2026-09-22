@@ -236,14 +236,18 @@ class GroundedAIService:
             )
 
         diag = diagnose_customer_risk_factors(profile)
-        health = calculate_health_score(profile)
-        stage = get_lifecycle_stage(profile)
+        health = calculate_customer_health_score(profile)
+        stage = classify_lifecycle_state(profile)
         churn_p = float(profile.get("churn_probability", 0.0))
         recency = int(profile.get("recency_days", 0))
         spend = float(profile.get("total_spend", 0.0))
 
-        factors_str = "; ".join(diag.get("risk_drivers", ["Extended inactivity"]))
+        risk_list = diag.get("risk_factors") or ["Extended purchase inactivity"]
+        factors_str = "; ".join(risk_list)
         
+        from services.data_service import retention_action
+        action_info = retention_action(churn_p, str(profile.get("rfm_segment", "")))
+
         return GroundedAnswer(
             query=query,
             intent="customer_risk_explanation",
@@ -266,8 +270,9 @@ class GroundedAIService:
                 f"Inactivity interval: {recency} days since last completed order.",
                 f"Historical lifetime merchandise spend: {format_brl(spend)} across {int(profile.get('total_orders', 1))} order(s).",
                 f"CSAT rating: {float(profile.get('avg_review_score', 5.0)):.1f} / 5.0 stars.",
+                diag.get("exposure_note", f"Lifetime spend: {format_brl(spend)}"),
             ],
-            recommended_action=diag.get("recommended_action", "Initiate targeted reactivation campaign."),
+            recommended_action=action_info.get("action", "Initiate targeted reactivation campaign."),
         )
 
     def _tool_explain_segment(self, query: str, segment_name: str) -> GroundedAnswer:

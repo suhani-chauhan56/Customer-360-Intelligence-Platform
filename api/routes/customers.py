@@ -59,6 +59,9 @@ def list_customers(
         clv_band=clv_band or "All",
     )
 
+    if sort_by and sort_by in filtered_df.columns:
+        filtered_df = filtered_df.sort_values(by=sort_by, ascending=not sort_desc)
+
     total_records = len(filtered_df)
     total_pages = max(1, (total_records + page_size - 1) // page_size)
     start_idx = (page - 1) * page_size

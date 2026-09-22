@@ -4,7 +4,17 @@ Provides high-performance, validated, documented REST endpoints under /api/v1
 serving Customer 360, Segments, Analytics, ML Inference, and System Health.
 """
 
+import sys
 import time
+from pathlib import Path
+
+# Ensure root and streamlit_app are in sys.path for unified service and config discovery
+ROOT_DIR = Path(__file__).resolve().parent.parent
+APP_DIR = ROOT_DIR / "streamlit_app"
+for p in [str(ROOT_DIR), str(APP_DIR)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse

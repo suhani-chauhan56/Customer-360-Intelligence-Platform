@@ -5,11 +5,20 @@ PostgreSQL support via standard DATABASE_URL environment configuration.
 """
 
 import os
+import sys
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
+
+# Ensure root and streamlit_app are in sys.path
+DB_DIR = Path(__file__).resolve().parent
+ROOT_DIR = DB_DIR.parent
+APP_DIR = ROOT_DIR / "streamlit_app"
+for p in [str(ROOT_DIR), str(APP_DIR)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 from config.settings import ROOT_DIR
 from utils.logging_config import logger
@@ -19,6 +28,7 @@ Base = declarative_base()
 
 # Database connection URL from environment, defaulting to local SQLite database
 DEFAULT_SQLITE_PATH = ROOT_DIR / "data" / "customer_atlas.db"
+DEFAULT_SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DEFAULT_SQLITE_PATH.as_posix()}")
 
 # Configure engine with connection pooling and thread safety

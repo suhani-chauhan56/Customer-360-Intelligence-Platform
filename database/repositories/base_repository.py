@@ -14,8 +14,8 @@ class BaseRepository(Generic[T]):
         self.session = session
 
     def get_by_id(self, entity_id: Any) -> Optional[T]:
-        """Fetch single entity by its primary key."""
-        return self.session.query(self.model_cls).get(entity_id)
+        """Fetch single entity by its primary key using SQLAlchemy 2.0 pattern."""
+        return self.session.get(self.model_cls, entity_id)
 
     def list_all(self, limit: int = 100, offset: int = 0) -> List[T]:
         """Retrieve paginated list of entities."""
@@ -33,3 +33,7 @@ class BaseRepository(Generic[T]):
     def delete(self, entity: T) -> None:
         """Delete entity from session."""
         self.session.delete(entity)
+
+    def commit(self) -> None:
+        """Commit current transaction."""
+        self.session.commit()

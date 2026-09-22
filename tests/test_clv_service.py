@@ -1,0 +1,30 @@
+"""Unit tests for CLV Intelligence Service in CustomerAtlas."""
+
+import pandas as pd
+import pytest
+from services.clv_service import (
+    analyze_high_value_cohort,
+    compute_clv_bins,
+    compute_clv_overview,
+)
+
+
+def test_compute_clv_overview(sample_customer_df: pd.DataFrame):
+    overview = compute_clv_overview(sample_customer_df)
+    assert overview["total_customers"] == 3
+    assert overview["avg_clv"] > 0
+    assert overview["total_pipeline_clv"] > 0
+
+
+def test_compute_clv_bins(sample_customer_df: pd.DataFrame):
+    bins = compute_clv_bins(sample_customer_df)
+    assert not bins.empty
+    assert "clv_bracket" in bins.columns
+    assert "customers" in bins.columns
+
+
+def test_analyze_high_value_cohort(sample_customer_df: pd.DataFrame):
+    hv = analyze_high_value_cohort(sample_customer_df, percentile=0.50)
+    assert hv["count"] >= 1
+    assert hv["revenue_share"] > 0
+    assert not hv["cohort_df"].empty

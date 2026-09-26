@@ -127,6 +127,18 @@ def test_risk_service(sample_customer_df: pd.DataFrame):
     prio = calculate_customer_prioritization(sample_customer_df)
     assert not prio.empty
     assert "priority_score" in prio.columns
+    assert "avg_order_value" in prio.columns
+    assert "clv_band" in prio.columns
+
+    # Test edge case with missing AOV and zero orders
+    edge_df = pd.DataFrame([
+        {"customer_id": "c1", "total_spend": 0.0, "total_orders": 0, "predicted_clv": 50.0, "churn_probability": 0.8},
+        {"customer_id": "c2", "total_spend": 100.0, "total_orders": 2, "predicted_clv": 150.0, "churn_probability": 0.3},
+    ])
+    prio_edge = calculate_customer_prioritization(edge_df)
+    assert "avg_order_value" in prio_edge.columns
+    assert prio_edge.loc[prio_edge["customer_id"] == "c1", "avg_order_value"].iloc[0] == 0.0
+    assert prio_edge.loc[prio_edge["customer_id"] == "c2", "avg_order_value"].iloc[0] == 50.0
 
     quad = compute_quadrant_matrix(sample_customer_df)
     assert "quadrants" in quad
@@ -141,6 +153,9 @@ def test_recommendation_service(sample_customer_df: pd.DataFrame, single_custome
 
     portfolio = compute_recommendation_portfolio(sample_customer_df)
     assert len(portfolio) == 3
+    assert "avg_order_value" in portfolio.columns
+    assert "total_orders" in portfolio.columns
+    assert "clv_band" in portfolio.columns
 
     summary = compute_recommendation_summary(portfolio)
     assert not summary.empty

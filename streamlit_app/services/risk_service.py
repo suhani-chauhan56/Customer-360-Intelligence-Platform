@@ -93,27 +93,35 @@ def calculate_customer_prioritization(df: pd.DataFrame, top_n: int = 200) -> pd.
     max_clv = p_df["predicted_clv"].quantile(0.99) if "predicted_clv" in p_df.columns else 1.0
     max_clv = max(1.0, max_clv)
 
-    norm_clv = (p_df["predicted_clv"] / max_clv).clip(upper=1.0)
-    churn_p = p_df["churn_probability"]
+    norm_clv = (p_df["predicted_clv"] / max_clv).clip(upper=1.0) if "predicted_clv" in p_df.columns else pd.Series(1.0, index=p_df.index)
+    churn_p = p_df["churn_probability"] if "churn_probability" in p_df.columns else pd.Series(0.5, index=p_df.index)
 
     # Priority score ranges 0 - 100
     p_df["priority_score"] = (churn_p * norm_clv * 100.0).round(1)
 
-    # Sort descending by priority score
-    cols = [
-        "customer_id",
-        "priority_score",
-        "churn_probability",
-        "predicted_clv",
-        "total_spend",
-        "rfm_segment",
-        "total_orders",
-        "recency_days",
-        "city",
-        "state",
-    ]
-    avail_cols = [c for c in cols if c in p_df.columns]
-    return p_df.sort_values("priority_score", ascending=False).head(top_n)[avail_cols]
+    # Ensure canonical AOV is present and cleanly calculated
+    if "avg_order_value" not in p_df.columns:
+        if "total_spend" in p_df.columns and "total_orders" in p_df.columns:
+            orders_safe = p_df["total_orders"].replace(0, np.nan)
+            p_df["avg_order_value"] = (p_df["total_spend"] / orders_safe).fillna(0.0).round(2)
+        elif "total_spend" in p_df.columns:
+            p_df["avg_order_value"] = p_df["total_spend"].round(2)
+        else:
+            p_df["avg_order_value"] = 0.0
+
+    # Ensure canonical CLV Value Band is present
+    if "clv_band" not in p_df.columns:
+        if "predicted_clv" in p_df.columns and p_df["predicted_clv"].nunique() > 1:
+            q25, q50, q75 = p_df["predicted_clv"].quantile([0.25, 0.50, 0.75])
+            p_df["clv_band"] = pd.cut(
+                p_df["predicted_clv"],
+                bins=[-np.inf, q25, q50, q75, np.inf],
+                labels=["Bronze", "Silver", "Gold", "Platinum"],
+            ).astype(str)
+        else:
+            p_df["clv_band"] = "Standard"
+
+    return p_df.sort_values("priority_score", ascending=False).head(top_n)
 
 
 def compute_quadrant_matrix(df: pd.DataFrame) -> Dict[str, Any]:

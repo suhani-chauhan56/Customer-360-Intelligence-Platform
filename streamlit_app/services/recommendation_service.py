@@ -179,3 +179,31 @@ def compute_recommendation_summary(recs_df: pd.DataFrame) -> pd.DataFrame:
         .sort_values("customer_count", ascending=False)
     )
     return summary
+
+
+def get_customer_recommendations(
+    recs_df: pd.DataFrame,
+    customer_id: str,
+    top_n: int = 5,
+) -> List[Dict[str, Any]]:
+    """Retrieve ranked explainable Next-Best-Category recommendations for a specific customer."""
+    if recs_df is None or recs_df.empty or not customer_id:
+        return []
+
+    matches = recs_df[recs_df["customer_id"].astype(str) == str(customer_id)]
+    if matches.empty:
+        return []
+
+    if "rank" in matches.columns:
+        matches = matches.sort_values("rank")
+
+    recs: List[Dict[str, Any]] = []
+    for _, row in matches.head(top_n).iterrows():
+        recs.append({
+            "rank": int(row.get("rank", len(recs) + 1)),
+            "recommended_category": str(row.get("recommended_category", "general")),
+            "reason": str(row.get("reason", "Frequently co-purchased category")),
+            "method": str(row.get("method", "basket_association")),
+        })
+    return recs
+

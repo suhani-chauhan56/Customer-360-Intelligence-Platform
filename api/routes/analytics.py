@@ -1,6 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 
+from api.dependencies import require_permission
 from api.schemas.analytics_schemas import (
     AskAtlasRequestSchema,
     AskAtlasResponseSchema,

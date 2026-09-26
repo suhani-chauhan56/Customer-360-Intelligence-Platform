@@ -1,6 +1,14 @@
-"""FastAPI dependencies for authentication, RBAC authorization, and database sessions."""
-
+import sys
+from pathlib import Path
 from typing import Generator, Optional
+
+# Ensure root and streamlit_app are in sys.path
+ROOT_DIR = Path(__file__).resolve().parent.parent
+APP_DIR = ROOT_DIR / "streamlit_app"
+for p in [str(ROOT_DIR), str(APP_DIR)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
 from fastapi import Header, HTTPException, Security, status, Depends
 from fastapi.security import APIKeyHeader, HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session

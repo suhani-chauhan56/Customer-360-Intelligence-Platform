@@ -50,6 +50,7 @@ from components.customer_profile import (
     render_customer_health_grid,
     render_lifecycle_journey,
     render_risk_diagnostics,
+    render_customer_timeline,
 )
 from components.customer_table import render_customer_table
 from components.data_quality_card import render_system_health_modal
@@ -159,8 +160,8 @@ load_css()
 # Workspace Metadata & Header Content
 PAGE_META = {
     "Executive Overview": {
-        "title": "Executive Overview & Portfolio Health",
-        "subtitle": "Macro customer health, revenue velocity, repeat purchasing rates, and enterprise risk exposure.",
+        "title": "Customer Intelligence Overview",
+        "subtitle": "Understand customer value, retention, risk and engagement at a glance.",
         "category": "EXECUTIVE OVERVIEW",
         "guides": [
             "Monitor portfolio customer health & GMV",
@@ -468,6 +469,79 @@ if current_page == "Executive Overview":
             kind="alert",
         )
 
+    # Customer Health Overview (Donut Chart & Segment Composition)
+    st.markdown('<div class="section-header"><h3>Customer Health & Audience Composition Overview</h3><span>Portfolio Viability & Segment Breakdown</span></div>', unsafe_allow_html=True)
+    c_health_l, c_health_r = st.columns([0.55, 0.45])
+
+    with c_health_l:
+        seg_dist = filtered["rfm_segment"].value_counts().reset_index()
+        seg_dist.columns = ["rfm_segment", "count"]
+        fig_health = px.pie(
+            seg_dist,
+            names="rfm_segment",
+            values="count",
+            hole=0.55,
+            title="Customer Audience Segment Composition",
+            color="rfm_segment",
+            color_discrete_sequence=CHART_COLORWAY,
+        )
+        style_chart(fig_health, 300, legend="bottom")
+
+    with c_health_r:
+        # Calculate empirical health cohorts
+        healthy_cohorts = ["Champions", "Loyal Customers", "Potential Loyalists"]
+        h_count = int(filtered[filtered["rfm_segment"].isin(healthy_cohorts)]["customer_id"].count())
+        h_rev = float(filtered[filtered["rfm_segment"].isin(healthy_cohorts)]["total_spend"].sum())
+        h_pct = h_count / max(1, total_customers)
+
+        reg_count = int(filtered[filtered["rfm_segment"] == "Regular Customers"]["customer_id"].count())
+        reg_rev = float(filtered[filtered["rfm_segment"] == "Regular Customers"]["total_spend"].sum())
+        reg_pct = reg_count / max(1, total_customers)
+
+        risk_cohort_count = int(filtered[filtered["rfm_segment"] == "At Risk"]["customer_id"].count())
+        risk_cohort_rev = float(filtered[filtered["rfm_segment"] == "At Risk"]["total_spend"].sum())
+        risk_cohort_pct = risk_cohort_count / max(1, total_customers)
+
+        lost_count = int(filtered[filtered["rfm_segment"] == "Lost Customers"]["customer_id"].count())
+        lost_rev = float(filtered[filtered["rfm_segment"] == "Lost Customers"]["total_spend"].sum())
+        lost_pct = lost_count / max(1, total_customers)
+
+        st.markdown(
+            f"""
+            <div style="display: flex; flex-direction: column; gap: 10px; height: 100%; justify-content: center;">
+                <div style="background: white; border: 1px solid #E2E8F0; border-left: 4px solid #16A34A; border-radius: 8px; padding: 12px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 13px; font-weight: 700; color: #0F172A;">Healthy & Loyal Base</span>
+                        <span style="font-size: 13px; font-weight: 800; color: #16A34A;">{format_pct(h_pct)} ({h_count:,} profiles)</span>
+                    </div>
+                    <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Champions, Loyal & Potential Loyalists • {format_brl(h_rev)} GMV</div>
+                </div>
+                <div style="background: white; border: 1px solid #E2E8F0; border-left: 4px solid #0284C7; border-radius: 8px; padding: 12px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 13px; font-weight: 700; color: #0F172A;">Regular Core Buyers</span>
+                        <span style="font-size: 13px; font-weight: 800; color: #0284C7;">{format_pct(reg_pct)} ({reg_count:,} profiles)</span>
+                    </div>
+                    <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Baseline active accounts • {format_brl(reg_rev)} GMV</div>
+                </div>
+                <div style="background: white; border: 1px solid #E2E8F0; border-left: 4px solid #F59E0B; border-radius: 8px; padding: 12px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 13px; font-weight: 700; color: #0F172A;">At-Risk Cohort</span>
+                        <span style="font-size: 13px; font-weight: 800; color: #F59E0B;">{format_pct(risk_cohort_pct)} ({risk_cohort_count:,} profiles)</span>
+                    </div>
+                    <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Previously active repeat buyers lapsing • {format_brl(risk_cohort_rev)} GMV</div>
+                </div>
+                <div style="background: white; border: 1px solid #E2E8F0; border-left: 4px solid #DC2626; border-radius: 8px; padding: 12px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 13px; font-weight: 700; color: #0F172A;">Lost Inactive Accounts</span>
+                        <span style="font-size: 13px; font-weight: 800; color: #DC2626;">{format_pct(lost_cohort_pct)} ({lost_count:,} profiles)</span>
+                    </div>
+                    <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Extended inactivity (>365d) • {format_brl(lost_rev)} GMV</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
     # Macro Revenue & Order Velocity
     fact_orders = load_csv("fact_orders.csv", ("purchase_date",))
     if not fact_orders.empty:
@@ -752,6 +826,17 @@ elif current_page == "Customer 360":
                 st.info("No detailed transaction line items found in the order ledger for this customer.")
             else:
                 cust_orders = cust_orders.sort_values("purchase_date", ascending=False)
+                
+                # Fetch associated reviews if available
+                reviews_df = load_sentiment_dataset()
+                cust_reviews = None
+                if not reviews_df.empty and "order_id" in reviews_df.columns:
+                    cust_reviews = reviews_df[reviews_df["order_id"].isin(cust_orders["order_id"])].copy()
+
+                # Render chronological activity timeline
+                render_customer_timeline(cust_orders, cust_reviews)
+
+                st.markdown("<div style='margin-top: 18px;'></div>", unsafe_allow_html=True)
                 order_cols = [c for c in ["order_id", "purchase_date", "order_status", "item_price", "freight_value", "revenue"] if c in cust_orders.columns]
                 st.markdown(f"**Completed Transaction Records ({len(cust_orders)} items):**")
                 st.dataframe(cust_orders[order_cols], hide_index=True, use_container_width=True)

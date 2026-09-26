@@ -1,11 +1,10 @@
 """Enterprise sidebar navigation and filter drawer components for CustomerAtlas.
 
-Implements structured navigation hierarchy aligned with the 10 core Product Workspaces:
+Implements clean B2B SaaS navigation hierarchy:
 - OVERVIEW: Executive Overview
-- CUSTOMER INTELLIGENCE: Customer 360, Customer Segmentation, Customer Value / CLV
-- PREDICTIVE & RISK: Churn Intelligence, Sentiment Intelligence, Recommendations
-- EXPLORATION & GOVERNANCE: Analytics Explorer, Data Quality, Methodology / About
-- AI DECISION SUPPORT: Ask CustomerAtlas
+- CUSTOMER INTELLIGENCE: Customer 360, Customer Segmentation, Customer Value, Churn Intelligence, Sentiment Intelligence
+- DECISION SUPPORT: Recommendations, Analytics Explorer, Ask CustomerAtlas
+- DATA: Data Quality, Methodology
 """
 
 from typing import List, Tuple
@@ -15,7 +14,7 @@ import streamlit as st
 # Enterprise Navigation Hierarchy
 NAV_SECTIONS: List[Tuple[str, List[Tuple[str, str, str]]]] = [
     (
-        "EXECUTIVE OVERVIEW",
+        "OVERVIEW",
         [
             ("Executive Overview", "Executive Overview", ":material/dashboard:"),
         ],
@@ -24,30 +23,25 @@ NAV_SECTIONS: List[Tuple[str, List[Tuple[str, str, str]]]] = [
         "CUSTOMER INTELLIGENCE",
         [
             ("Customer 360", "Customer 360", ":material/person_search:"),
-            ("Customer Segmentation", "Customer Segmentation", ":material/pie_chart:"),
-            ("Customer Value / CLV", "Customer Value / CLV", ":material/diamond:"),
-        ],
-    ),
-    (
-        "PREDICTIVE & RISK AI",
-        [
+            ("Segmentation", "Customer Segmentation", ":material/pie_chart:"),
+            ("Customer Value", "Customer Value / CLV", ":material/diamond:"),
             ("Churn Intelligence", "Churn Intelligence", ":material/warning:"),
             ("Sentiment Intelligence", "Sentiment Intelligence", ":material/reviews:"),
-            ("Recommendations", "Recommendations", ":material/recommend:"),
-        ],
-    ),
-    (
-        "EXPLORATION & GOVERNANCE",
-        [
-            ("Analytics Explorer", "Analytics Explorer", ":material/manage_search:"),
-            ("Data Quality", "Data Quality", ":material/verified_user:"),
-            ("Methodology / About", "Methodology / About", ":material/menu_book:"),
         ],
     ),
     (
         "DECISION SUPPORT",
         [
+            ("Recommendations", "Recommendations", ":material/recommend:"),
+            ("Analytics Explorer", "Analytics Explorer", ":material/manage_search:"),
             ("Ask CustomerAtlas", "Ask CustomerAtlas", ":material/psychology:"),
+        ],
+    ),
+    (
+        "DATA",
+        [
+            ("Data Quality", "Data Quality", ":material/verified_user:"),
+            ("Methodology", "Methodology / About", ":material/menu_book:"),
         ],
     ),
 ]
@@ -60,14 +54,14 @@ def render_sidebar(customer_features: pd.DataFrame) -> Tuple[pd.DataFrame, str]:
         Tuple of (filtered_dataframe, active_page_key)
     """
     with st.sidebar:
-        # Sidebar Brand Header
+        # Product Brand Header
         st.markdown(
             """
-            <div class="sidebar-brand-container">
-                <div class="sidebar-brand-icon">CA</div>
+            <div style="padding: 12px 14px; margin-bottom: 18px; background: #1E293B; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; display: flex; align-items: center; gap: 12px;">
+                <div style="width: 36px; height: 36px; background: #4F46E5; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 16px; box-shadow: 0 2px 6px rgba(79, 70, 229, 0.4); flex-shrink: 0;">CA</div>
                 <div>
-                    <div class="sidebar-brand-title">CustomerAtlas AI</div>
-                    <div class="sidebar-brand-subtitle">Unified Customer Intelligence</div>
+                    <div style="font-size: 14.5px; font-weight: 800; color: #FFFFFF; line-height: 1.2;">CustomerAtlas AI</div>
+                    <div style="font-size: 11px; color: #94A3B8; font-weight: 500;">Unified Customer Intelligence</div>
                 </div>
             </div>
             """,
@@ -78,7 +72,10 @@ def render_sidebar(customer_features: pd.DataFrame) -> Tuple[pd.DataFrame, str]:
         current_page = st.session_state.get("active_page", "Executive Overview")
 
         for section_title, items in NAV_SECTIONS:
-            st.markdown(f'<div class="nav-category-header">{section_title}</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div style="font-size: 10px; font-weight: 700; color: #64748B; letter-spacing: 0.08em; text-transform: uppercase; margin: 16px 4px 6px 4px;">{section_title}</div>',
+                unsafe_allow_html=True,
+            )
             for display_label, page_key, icon in items:
                 is_active = (current_page == page_key)
                 if st.button(
@@ -92,7 +89,10 @@ def render_sidebar(customer_features: pd.DataFrame) -> Tuple[pd.DataFrame, str]:
                     st.rerun()
 
         # Global Audience Filters
-        st.markdown('<div class="nav-category-header">GLOBAL AUDIENCE FILTERS</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="font-size: 10px; font-weight: 700; color: #64748B; letter-spacing: 0.08em; text-transform: uppercase; margin: 20px 4px 6px 4px;">AUDIENCE FILTERS</div>',
+            unsafe_allow_html=True,
+        )
         with st.expander("Filter Customer Base", expanded=False, icon=":material/tune:"):
             min_date = customer_features["last_purchase_date"].min().date() if "last_purchase_date" in customer_features.columns and hasattr(customer_features["last_purchase_date"], "dt") else None
             max_date = customer_features["last_purchase_date"].max().date() if "last_purchase_date" in customer_features.columns and hasattr(customer_features["last_purchase_date"], "dt") else None

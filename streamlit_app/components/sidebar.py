@@ -1,11 +1,11 @@
 """Enterprise sidebar navigation and filter drawer components for CustomerAtlas.
 
-Implements structured navigation hierarchy aligned with the Customer Intelligence SaaS architecture:
+Implements structured navigation hierarchy aligned with the 10 core Product Workspaces:
 - OVERVIEW: Executive Overview
-- CUSTOMER INTELLIGENCE: Customer 360, Customer Explorer, Segmentation
-- CUSTOMER VALUE: RFM Analysis, Customer Lifetime Value
-- CUSTOMER RISK: Churn & Risk
-- INSIGHTS: Customer Insights
+- CUSTOMER INTELLIGENCE: Customer 360, Customer Segmentation, Customer Value / CLV
+- PREDICTIVE & RISK: Churn Intelligence, Sentiment Intelligence, Recommendations
+- EXPLORATION & GOVERNANCE: Analytics Explorer, Data Quality, Methodology / About
+- AI DECISION SUPPORT: Ask CustomerAtlas
 """
 
 from typing import List, Tuple
@@ -15,7 +15,7 @@ import streamlit as st
 # Enterprise Navigation Hierarchy
 NAV_SECTIONS: List[Tuple[str, List[Tuple[str, str, str]]]] = [
     (
-        "OVERVIEW",
+        "EXECUTIVE OVERVIEW",
         [
             ("Executive Overview", "Executive Overview", ":material/dashboard:"),
         ],
@@ -24,27 +24,29 @@ NAV_SECTIONS: List[Tuple[str, List[Tuple[str, str, str]]]] = [
         "CUSTOMER INTELLIGENCE",
         [
             ("Customer 360", "Customer 360", ":material/person_search:"),
-            ("Customer Explorer", "Customer Explorer", ":material/manage_search:"),
-            ("Segmentation", "Segmentation", ":material/pie_chart:"),
+            ("Customer Segmentation", "Customer Segmentation", ":material/pie_chart:"),
+            ("Customer Value / CLV", "Customer Value / CLV", ":material/diamond:"),
         ],
     ),
     (
-        "CUSTOMER VALUE",
+        "PREDICTIVE & RISK AI",
         [
-            ("RFM Analysis", "RFM Analysis", ":material/equalizer:"),
-            ("Customer Lifetime Value", "Customer Lifetime Value", ":material/diamond:"),
+            ("Churn Intelligence", "Churn Intelligence", ":material/warning:"),
+            ("Sentiment Intelligence", "Sentiment Intelligence", ":material/reviews:"),
+            ("Recommendations", "Recommendations", ":material/recommend:"),
         ],
     ),
     (
-        "CUSTOMER RISK",
+        "EXPLORATION & GOVERNANCE",
         [
-            ("Churn & Risk", "Churn & Risk", ":material/warning:"),
+            ("Analytics Explorer", "Analytics Explorer", ":material/manage_search:"),
+            ("Data Quality", "Data Quality", ":material/verified_user:"),
+            ("Methodology / About", "Methodology / About", ":material/menu_book:"),
         ],
     ),
     (
-        "INSIGHTS & AI",
+        "DECISION SUPPORT",
         [
-            ("Customer Insights", "Customer Insights", ":material/lightbulb:"),
             ("Ask CustomerAtlas", "Ask CustomerAtlas", ":material/psychology:"),
         ],
     ),
@@ -64,7 +66,7 @@ def render_sidebar(customer_features: pd.DataFrame) -> Tuple[pd.DataFrame, str]:
             <div class="sidebar-brand-container">
                 <div class="sidebar-brand-icon">CA</div>
                 <div>
-                    <div class="sidebar-brand-title">CustomerAtlas</div>
+                    <div class="sidebar-brand-title">CustomerAtlas AI</div>
                     <div class="sidebar-brand-subtitle">Unified Customer Intelligence</div>
                 </div>
             </div>
@@ -92,8 +94,8 @@ def render_sidebar(customer_features: pd.DataFrame) -> Tuple[pd.DataFrame, str]:
         # Global Audience Filters
         st.markdown('<div class="nav-category-header">GLOBAL AUDIENCE FILTERS</div>', unsafe_allow_html=True)
         with st.expander("Filter Customer Base", expanded=False, icon=":material/tune:"):
-            min_date = customer_features["last_purchase_date"].min().date() if "last_purchase_date" in customer_features.columns else None
-            max_date = customer_features["last_purchase_date"].max().date() if "last_purchase_date" in customer_features.columns else None
+            min_date = customer_features["last_purchase_date"].min().date() if "last_purchase_date" in customer_features.columns and hasattr(customer_features["last_purchase_date"], "dt") else None
+            max_date = customer_features["last_purchase_date"].max().date() if "last_purchase_date" in customer_features.columns and hasattr(customer_features["last_purchase_date"], "dt") else None
 
             if st.session_state.get("reset_filters_flag", False):
                 st.session_state.global_rfm = "All"
@@ -134,7 +136,7 @@ def render_sidebar(customer_features: pd.DataFrame) -> Tuple[pd.DataFrame, str]:
         # System Metadata Footer
         st.markdown("<div style='margin-top: 24px;'></div>", unsafe_allow_html=True)
         st.caption(f"Connected: **{len(customer_features):,} Profiles**")
-        st.caption("Release: **v2.0 Customer Intelligence**")
+        st.caption("Platform: **CustomerAtlas AI v2.5**")
 
     # Apply Filters to dataset
     filtered = customer_features.copy()
@@ -152,7 +154,11 @@ def render_sidebar(customer_features: pd.DataFrame) -> Tuple[pd.DataFrame, str]:
     if selected_category != "All":
         filtered = filtered[filtered["favorite_category"] == selected_category]
     if date_range and isinstance(date_range, (tuple, list)) and len(date_range) == 2:
-        start_dt, end_dt = pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])
-        filtered = filtered[filtered["last_purchase_date"].between(start_dt, end_dt)]
+        try:
+            start_dt, end_dt = pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])
+            if "last_purchase_date" in filtered.columns:
+                filtered = filtered[filtered["last_purchase_date"].between(start_dt, end_dt)]
+        except Exception:
+            pass
 
     return filtered, st.session_state.get("active_page", "Executive Overview")

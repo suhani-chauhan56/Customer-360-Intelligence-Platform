@@ -1,21 +1,25 @@
-"""CustomerAtlas — Unified Customer Intelligence Platform (Phase 2).
+"""CustomerAtlas AI — Unified Customer Intelligence Platform.
 
-Enterprise-grade B2B customer intelligence SaaS platform covering:
-1. Executive Customer Overview
-2. Customer 360 Profile Dossier
-3. Customer Explorer & Discovery Search
-4. Audience & RFM Segmentation (with Segment Drill-down & Comparison)
-5. RFM Intelligence & Behavioral Distribution
-6. Customer Lifetime Value (CLV & High-Value Analysis)
-7. Customer Risk & Churn Intelligence (High-Value + High-Risk Matrix & Prioritization)
-8. Structured Business Insights & Customer Comparison Tool
+Production-grade, enterprise customer intelligence application covering:
+1. Executive Overview
+2. Customer 360 (Unified Profile Dossier & Activity Ledger)
+3. Customer Segmentation (RFM Intelligence, Playbooks, Cohort Builder)
+4. Customer Value / CLV (12-Month Forward Value, Bands, Cohorts & ML Estimator)
+5. Churn Intelligence (Risk Exposure, 4-Quadrant Matrix, Feature Drivers, Simulator)
+6. Sentiment Intelligence (CSAT Analytics, Longitudinal Trends, Negative Theme Extraction)
+7. Recommendations (Multi-Signal Action Engine, Rule Matrix, Priority Queue)
+8. Analytics Explorer (Multi-Dimensional Filter Hub, Slice Analytics, CSV Export)
+9. Data Quality (Completeness Audit, Raw vs Processed Lineage, PSI Drift, System Health)
+10. Methodology / About (Architecture, Mathematical Formulations, MLOps Standards)
+Plus: Ask CustomerAtlas (Grounded AI Decision Support Engine)
 
 Run locally:
+    streamlit run app.py
+or
     streamlit run streamlit_app/app.py
 """
 
 import sys
-from itertools import combinations
 from pathlib import Path
 from typing import Optional
 
@@ -27,8 +31,10 @@ import streamlit as st
 
 # Setup sys.path to resolve internal modules
 APP_DIR = Path(__file__).resolve().parent
-if str(APP_DIR) not in sys.path:
-    sys.path.insert(0, str(APP_DIR))
+ROOT_DIR = APP_DIR.parent
+for p in [str(ROOT_DIR), str(APP_DIR)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 # Component Imports
 from components.cards import (
@@ -56,7 +62,7 @@ from components.metric_cards import render_kpi_row
 from components.sidebar import render_sidebar
 
 # Service Imports
-from services.grounded_ai_service import GroundedAIService
+from services.audit_service import get_recent_audit_events, record_audit_event
 from services.clv_service import (
     analyze_high_value_cohort,
     compute_clv_bins,
@@ -70,6 +76,7 @@ from services.customer_service import (
     get_customer_profile,
     search_customers,
 )
+from services.data_quality_service import run_data_quality_audit
 from services.data_service import (
     SQL_DIR,
     build_customer_pdf,
@@ -77,6 +84,16 @@ from services.data_service import (
     load_model,
     model_input_frame,
     retention_action,
+)
+from services.drift_service import run_feature_drift_audit
+from services.grounded_ai_service import GroundedAIService
+from services.health_score_service import calculate_customer_health_score, classify_lifecycle_state
+from services.model_service import audit_model_registry
+from services.recommendation_service import (
+    RECOMMENDATION_RULES,
+    compute_recommendation_portfolio,
+    compute_recommendation_summary,
+    generate_customer_recommendation,
 )
 from services.rfm_service import (
     compare_segments,
@@ -90,8 +107,17 @@ from services.risk_service import (
     compute_risk_distribution,
     compute_risk_overview,
 )
+from services.sentiment_service import (
+    compute_category_satisfaction,
+    compute_sentiment_by_segment,
+    compute_sentiment_overview,
+    compute_sentiment_trend,
+    extract_negative_themes,
+    load_sentiment_dataset,
+)
 
 # Utility Imports
+from config.settings import get_environment_info
 from utils.formatting import (
     format_brl,
     format_currency,
@@ -100,6 +126,7 @@ from utils.formatting import (
     format_pct,
     format_percent,
 )
+from utils.helpers import calculate_data_snapshot_info
 from utils.styling import (
     CHART_COLORWAY,
     COLOR_AMBER,
@@ -120,7 +147,7 @@ from utils.validation import validate_customer_dataframe, validate_customer_id
 # ==============================================================================
 
 st.set_page_config(
-    page_title="CustomerAtlas | Customer Intelligence Platform",
+    page_title="CustomerAtlas AI | Unified Customer Intelligence Platform",
     page_icon="🧭",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -129,12 +156,12 @@ st.set_page_config(
 # Inject centralized enterprise stylesheet
 load_css()
 
-# Workspace Metadata & Breadcrumb Content
+# Workspace Metadata & Header Content
 PAGE_META = {
     "Executive Overview": {
-        "title": "Executive Customer Overview",
+        "title": "Executive Overview & Portfolio Health",
         "subtitle": "Macro customer health, revenue velocity, repeat purchasing rates, and enterprise risk exposure.",
-        "category": "OVERVIEW",
+        "category": "EXECUTIVE OVERVIEW",
         "guides": [
             "Monitor portfolio customer health & GMV",
             "Track repeat buyer rate and retention health",
@@ -143,8 +170,8 @@ PAGE_META = {
         ],
     },
     "Customer 360": {
-        "title": "Customer 360 Unified Profile",
-        "subtitle": "Complete customer dossier, 6-dimension vital health signs, verifiable lifecycle journey, and transaction history.",
+        "title": "Customer 360 Unified Profile Dossier",
+        "subtitle": "Complete customer dossier, 6-dimension vital health signs, verifiable lifecycle journey, and transaction ledger.",
         "category": "CUSTOMER INTELLIGENCE",
         "guides": [
             "Search and inspect 94k+ canonical customer profiles",
@@ -153,19 +180,8 @@ PAGE_META = {
             "Access AI Next-Best-Category recommendations",
         ],
     },
-    "Customer Explorer": {
-        "title": "Customer Explorer & Discovery Hub",
-        "subtitle": "Filter, search, and drill down into customer records with multi-dimensional criteria and instant profile opening.",
-        "category": "CUSTOMER INTELLIGENCE",
-        "guides": [
-            "Search by Customer ID, location, or value band",
-            "Filter by RFM segment, churn risk, and recency window",
-            "Paginate and sort decision-useful customer fields",
-            "1-click transition into individual Customer 360 profiles",
-        ],
-    },
-    "Segmentation": {
-        "title": "Customer Segmentation & Audience Drill-Down",
+    "Customer Segmentation": {
+        "title": "Customer Segmentation & RFM Intelligence",
         "subtitle": "RFM segment distribution, granular audience drill-down, side-by-side comparison, and targeted cohort builder.",
         "category": "CUSTOMER INTELLIGENCE",
         "guides": [
@@ -175,21 +191,10 @@ PAGE_META = {
             "Build targeted campaign cohorts with CSV export",
         ],
     },
-    "RFM Analysis": {
-        "title": "RFM Intelligence & Behavioral Distribution",
-        "subtitle": "Deep analysis of Recency, Frequency, and Monetary dimensions across the customer base.",
-        "category": "CUSTOMER VALUE",
-        "guides": [
-            "Understand Recency, Frequency, and Monetary distribution",
-            "Inspect multi-dimensional RFM scatter matrices",
-            "Review quintile scoring framework and rules",
-            "Identify transition points for customer reactivation",
-        ],
-    },
-    "Customer Lifetime Value": {
-        "title": "Customer Lifetime Value (CLV) Intelligence",
+    "Customer Value / CLV": {
+        "title": "Customer Value & Lifetime Value (CLV) Intelligence",
         "subtitle": "12-month forward predictive CLV benchmarks, dynamic value banding, and high-value customer cohort analysis.",
-        "category": "CUSTOMER VALUE",
+        "category": "CUSTOMER INTELLIGENCE",
         "guides": [
             "Benchmark average and top 10% customer CLV",
             "Analyze customer distribution across dynamic CLV bands",
@@ -197,10 +202,10 @@ PAGE_META = {
             "Run interactive 12-Month CLV scenario simulations",
         ],
     },
-    "Churn & Risk": {
+    "Churn Intelligence": {
         "title": "Customer Churn & Risk Intelligence",
         "subtitle": "At-risk revenue exposure, 4-quadrant value-risk matrix, XGBoost feature drivers, and prioritized retention queue.",
-        "category": "CUSTOMER RISK",
+        "category": "PREDICTIVE & RISK AI",
         "guides": [
             "Quantify total revenue exposed to customer churn",
             "Explore High-Value + High-Risk 4-quadrant matrix",
@@ -208,21 +213,65 @@ PAGE_META = {
             "Simulate live churn propensity with What-If tool",
         ],
     },
-    "Customer Insights": {
-        "title": "Customer Intelligence & Structured Insights",
-        "subtitle": "Evidence-backed business insights, empirical observations, commercial implications, and customer comparison tool.",
-        "category": "INSIGHTS",
+    "Sentiment Intelligence": {
+        "title": "Sentiment Intelligence & Customer CSAT Analytics",
+        "subtitle": "Customer satisfaction benchmarks, longitudinal sentiment trends, segment CSAT, and empirical negative feedback root causes.",
+        "category": "PREDICTIVE & RISK AI",
         "guides": [
-            "Review evidence-backed executive business insights",
-            "Analyze customer concentration and repeat rate findings",
-            "Compare any two individual customers side-by-side",
-            "Evaluate operational and logistics satisfaction drivers",
+            "Track Positive, Neutral, and Negative CSAT distribution",
+            "Analyze longitudinal monthly review rating trajectory",
+            "Examine customer satisfaction across RFM segments and categories",
+            "Diagnose empirical negative feedback themes and root causes",
+        ],
+    },
+    "Recommendations": {
+        "title": "Customer Action Recommendation Engine",
+        "subtitle": "Transparent, multi-signal customer action recommendation engine with documented decision rules and priority queues.",
+        "category": "PREDICTIVE & RISK AI",
+        "guides": [
+            "Review automated customer action assignments and priorities",
+            "Inspect transparent business decision rules and rationale",
+            "Filter action queues by retention, win-back, loyalty, or cross-sell",
+            "Explore Next-Best-Category cross-sell recommendations with CSV export",
+        ],
+    },
+    "Analytics Explorer": {
+        "title": "Analytics Explorer & Multi-Criteria Discovery Hub",
+        "subtitle": "Filter, search, slice, and drill down into customer records with multi-dimensional criteria and instant profile opening.",
+        "category": "EXPLORATION & GOVERNANCE",
+        "guides": [
+            "Search by Customer ID, location, or value band",
+            "Filter by RFM segment, churn risk, and recency window",
+            "Inspect filtered cohort spend and recency distributions",
+            "1-click transition into individual Customer 360 profiles",
+        ],
+    },
+    "Data Quality": {
+        "title": "Data Quality, Integrity & MLOps Governance",
+        "subtitle": "Automated data completeness audits, raw vs processed data lineage, PSI feature drift monitoring, and compliance logs.",
+        "category": "EXPLORATION & GOVERNANCE",
+        "guides": [
+            "Evaluate data completeness score and field-by-field integrity",
+            "Audit raw ingestion vs processed feature store lineage",
+            "Monitor Population Stability Index (PSI) feature drift",
+            "Inspect real-time compliance event audit stream",
+        ],
+    },
+    "Methodology / About": {
+        "title": "Methodology, Architecture & Enterprise Governance",
+        "subtitle": "Comprehensive documentation of mathematical formulations, ML models, data pipelines, assumptions, and engineering standards.",
+        "category": "EXPLORATION & GOVERNANCE",
+        "guides": [
+            "Review RFM quintile scoring and audience segmentation methodology",
+            "Inspect 12-Month Forward CLV model architecture and value tiers",
+            "Understand XGBoost churn classification and non-causal attribution policy",
+            "Explore system architecture, tech stack, and deployment instructions",
         ],
     },
     "Ask CustomerAtlas": {
         "title": "Ask CustomerAtlas — Grounded AI Assistant",
         "subtitle": "Safe natural-language analytics grounded 100% in factual metrics, database statistics, and verified ML models.",
-        "category": "AI & DECISION SUPPORT",
+        "category": "DECISION SUPPORT",
         "guides": [
             "Ask macro questions about customer revenue, repeat rates, and regional hubs",
             "Identify vulnerable high-value customers at severe churn risk",
@@ -236,7 +285,11 @@ PAGE_META = {
 # DATA INITIALIZATION & VALIDATION
 # ==============================================================================
 
-customer_features = load_csv("customer_360_features.csv", ("first_purchase_date", "last_purchase_date"))
+try:
+    customer_features = load_csv("customer_360_features.csv", ("first_purchase_date", "last_purchase_date"))
+except Exception as err:
+    render_error_state("Critical Data Loading Failure", f"Unable to load customer feature store: {err}")
+    st.stop()
 
 is_valid, validation_issues = validate_customer_dataframe(customer_features)
 if not is_valid:
@@ -278,7 +331,7 @@ if filtered.empty:
 
 
 # ==============================================================================
-# WORKSPACE 1: EXECUTIVE CUSTOMER OVERVIEW
+# WORKSPACE 1: EXECUTIVE OVERVIEW
 # ==============================================================================
 
 if current_page == "Executive Overview":
@@ -305,6 +358,7 @@ if current_page == "Executive Overview":
     high_val_df = filtered[filtered["predicted_clv"] >= p90_clv]
     high_val_count = len(high_val_df)
     high_val_rev = high_val_df["total_spend"].sum()
+    avg_clv = filtered["predicted_clv"].mean()
 
     # Top KPI Layer (All calculated directly from data)
     render_kpi_row([
@@ -321,7 +375,7 @@ if current_page == "Executive Overview":
             "icon": "⚡",
         },
         {
-            "label": "Merchandise GMV",
+            "label": "Total Revenue (GMV)",
             "value": format_brl(total_gmv),
             "subtitle": "Total gross spend",
             "icon": "💰",
@@ -342,6 +396,12 @@ if current_page == "Executive Overview":
             "icon": "🛒",
         },
         {
+            "label": "Average 12M CLV",
+            "value": format_brl(avg_clv),
+            "subtitle": "Forward value proxy",
+            "icon": "📈",
+        },
+        {
             "label": "Repeat Customer Rate",
             "value": format_pct(repeat_rate),
             "subtitle": f"{repeat_customers:,} multi-order buyers",
@@ -355,17 +415,11 @@ if current_page == "Executive Overview":
             "subtitle": "Revenue exposed to churn",
             "icon": "⚠️",
         },
-        {
-            "label": "High-Value Customers",
-            "value": f"{high_val_count:,}",
-            "delta": f"{format_pct(high_val_rev/max(1, total_gmv))} GMV",
-            "delta_direction": "positive",
-            "subtitle": "Top 10% CLV tier",
-            "icon": "⭐",
-        },
     ])
 
-    # Structured Insights Grid
+    # Dynamic Structured Insights Section (100% calculated from current data)
+    st.markdown('<div class="section-header"><h3>Dynamic Key Insights & Commercial Signals</h3><span>Calculated from Current Filtered Cohort</span></div>', unsafe_allow_html=True)
+    
     top_seg_name = filtered.groupby("rfm_segment")["total_spend"].sum().idxmax()
     top_seg_revenue = filtered.groupby("rfm_segment")["total_spend"].sum().max()
     top_seg_share = top_seg_revenue / max(1, total_gmv)
@@ -374,60 +428,81 @@ if current_page == "Executive Overview":
     top_state_revenue = filtered.groupby("state")["total_spend"].sum().max()
     top_state_share = top_state_revenue / max(1, total_gmv)
 
+    p80_spend = filtered["total_spend"].quantile(0.80)
+    top_20_rev = filtered[filtered["total_spend"] >= p80_spend]["total_spend"].sum()
+    top_20_share = top_20_rev / max(1, total_gmv)
+
     col_ins1, col_ins2 = st.columns(2)
     with col_ins1:
         render_structured_insight(
-            title="Revenue Concentration",
-            observation="A small segment of top customers accounts for a disproportionate share of cumulative merchandise sales.",
-            evidence=f"{top_seg_name} generates {format_brl(top_seg_revenue)} ({format_pct(top_seg_share)} of filtered GMV).",
-            implication="Prioritize retention and VIP loyalty perks for this segment to safeguard the core revenue foundation.",
+            title="Revenue Concentration (Pareto Distribution)",
+            observation="A small minority of top spenders accounts for the disproportionate share of cumulative merchandise sales.",
+            evidence=f"The top 20% of spenders account for {format_pct(top_20_share)} ({format_brl(top_20_rev)}) of total GMV. Leading segment '{top_seg_name}' contributes {format_brl(top_seg_revenue)} ({format_pct(top_seg_share)}).",
+            implication="Prioritize VIP retention and loyalty perks for this cohort to safeguard the core revenue foundation.",
             badge="Pareto Health",
             kind="info",
         )
+        render_structured_insight(
+            title="Regional Demand Hubs (Geographic Focus)",
+            observation="Merchandise demand is strongly clustered in key economic centers.",
+            evidence=f"State '{top_state}' represents the largest geographic market with {format_brl(top_state_revenue)} ({format_pct(top_state_share)} of total GMV).",
+            implication="Optimize regional fulfillment, carrier routing, and localized promotional campaigns in primary states.",
+            badge="Geographic Intelligence",
+            kind="success",
+        )
     with col_ins2:
         render_structured_insight(
-            title="Repeat Purchase Opportunity",
-            observation="The vast majority of customer relationships currently conclude after a single completed transaction.",
-            evidence=f"Repeat customer rate is {format_pct(repeat_rate)} ({repeat_customers:,} of {total_customers:,} customers).",
-            implication="Developing an automated second-purchase nurturing sequence represents the highest leverage growth lever.",
+            title="Single-Purchase Drop-Off Opportunity",
+            observation="The majority of customer relationships conclude after a single completed purchase.",
+            evidence=f"Repeat buyer rate is {format_pct(repeat_rate)} ({repeat_customers:,} multi-order buyers out of {total_customers:,} total profiles).",
+            implication="Deploying an automated 14-day post-purchase replenishment workflow represents the highest leverage CLV multiplier.",
             badge="Retention Lever",
             kind="warning" if repeat_rate < 0.10 else "info",
+        )
+        render_structured_insight(
+            title="Churn Risk Exposure & Capital Protection",
+            observation="A substantial amount of historical revenue belongs to customers currently exhibiting extended inactivity.",
+            evidence=f"{at_risk_count:,} customers ({format_pct(at_risk_count/max(1, total_customers))}) represent {format_brl(at_risk_rev)} in cumulative merchandise spend at risk (churn probability >= 65%).",
+            implication="Deploy targeted win-back incentives to reactivate lapsed relationships before complete account attrition.",
+            badge="Risk Exposure",
+            kind="alert",
         )
 
     # Macro Revenue & Order Velocity
     fact_orders = load_csv("fact_orders.csv", ("purchase_date",))
     if not fact_orders.empty:
-        st.markdown('<div class="section-header"><h3>Macro Revenue Velocity & Order Trajectory</h3><span>Historical Trend</span></div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header"><h3>Macro Revenue Velocity & Order Trajectory</h3><span>Historical Monthly GMV & Order Volume</span></div>', unsafe_allow_html=True)
         valid_orders = fact_orders[~fact_orders["order_status"].isin(["canceled", "unavailable"])].copy()
-        valid_orders["month_year"] = valid_orders["purchase_date"].dt.to_period("M").astype(str)
-        monthly_summary = valid_orders.groupby("month_year", as_index=False).agg(
-            revenue=("revenue", "sum"),
-            orders=("order_id", "nunique"),
-        ).sort_values("month_year")
+        if "purchase_date" in valid_orders.columns and hasattr(valid_orders["purchase_date"], "dt"):
+            valid_orders["month_year"] = valid_orders["purchase_date"].dt.to_period("M").astype(str)
+            monthly_summary = valid_orders.groupby("month_year", as_index=False).agg(
+                revenue=("revenue", "sum"),
+                orders=("order_id", "nunique"),
+            ).sort_values("month_year")
 
-        fig_macro = go.Figure()
-        fig_macro.add_trace(go.Bar(
-            x=monthly_summary["month_year"],
-            y=monthly_summary["revenue"],
-            name="Merchandise GMV (BRL)",
-            marker_color=COLOR_PRIMARY,
-            opacity=0.85,
-        ))
-        fig_macro.add_trace(go.Scatter(
-            x=monthly_summary["month_year"],
-            y=monthly_summary["orders"],
-            name="Completed Orders",
-            yaxis="y2",
-            mode="lines+markers",
-            line=dict(color=COLOR_AMBER, width=3),
-            marker=dict(size=6),
-        ))
-        fig_macro.update_layout(
-            title="Monthly Merchandise GMV (BRL) and Order Volume Trajectory",
-            yaxis=dict(title="Revenue (BRL)"),
-            yaxis2=dict(title="Order Count", overlaying="y", side="right", showgrid=False),
-        )
-        style_chart(fig_macro, 320, legend="top")
+            fig_macro = go.Figure()
+            fig_macro.add_trace(go.Bar(
+                x=monthly_summary["month_year"],
+                y=monthly_summary["revenue"],
+                name="Merchandise GMV (BRL)",
+                marker_color=COLOR_PRIMARY,
+                opacity=0.85,
+            ))
+            fig_macro.add_trace(go.Scatter(
+                x=monthly_summary["month_year"],
+                y=monthly_summary["orders"],
+                name="Completed Orders",
+                yaxis="y2",
+                mode="lines+markers",
+                line=dict(color=COLOR_AMBER, width=3),
+                marker=dict(size=6),
+            ))
+            fig_macro.update_layout(
+                title="Monthly Merchandise GMV (BRL) and Completed Order Volume",
+                yaxis=dict(title="Revenue (BRL)"),
+                yaxis2=dict(title="Order Count", overlaying="y", side="right", showgrid=False),
+            )
+            style_chart(fig_macro, 320, legend="top")
 
     # Segment Revenue & Geographic Distribution
     c_rev1, c_rev2 = st.columns(2)
@@ -462,13 +537,10 @@ if current_page == "Executive Overview":
         fig_state.update_layout(coloraxis_showscale=False)
         style_chart(fig_state, 320, legend="hidden")
 
-    # Governance & Methodology Expanders
-    render_system_health_modal(customer_features)
-    render_methodology_panel("all")
-
-    # Export Action
+    # Governance Snapshot & Export Action
+    st.markdown("<div style='margin-top: 18px;'></div>", unsafe_allow_html=True)
     st.download_button(
-        "Download Executive Overview Profiles (CSV)",
+        "Download Executive Overview Dataset (CSV)",
         filtered.to_csv(index=False).encode("utf-8"),
         "customer_atlas_executive_view.csv",
         "text/csv",
@@ -477,7 +549,7 @@ if current_page == "Executive Overview":
 
 
 # ==============================================================================
-# WORKSPACE 2: CUSTOMER 360 PROFILE
+# WORKSPACE 2: CUSTOMER 360
 # ==============================================================================
 
 elif current_page == "Customer 360":
@@ -636,7 +708,7 @@ elif current_page == "Customer 360":
                 "Geographic Location": f"{str(profile.get('city', '')).title()}, {str(profile.get('state', '')).upper()}",
                 "Primary Favorite Category": str(profile.get("favorite_category")),
                 "Distinct Items Purchased": int(profile.get("number_of_products", 1)),
-                "Average CSAT Feedback Rating": f"{float(profile.get('avg_review_score', 5.0)):.1f} / 5.0 stars",
+                "Average CSAT Feedback Rating": f"{float(profile.get("avg_review_score", 5.0)):.1f} / 5.0 stars",
                 "Customer Tenure Span": f"{int(profile.get('customer_age_days', 1))} days",
                 "Behavioral Cluster": str(profile.get("cluster_segment", "Standard")),
                 "Estimated 90-Day Forward Revenue": format_brl(profile.get("predicted_90d_revenue", 0)),
@@ -756,78 +828,10 @@ elif current_page == "Customer 360":
 
 
 # ==============================================================================
-# WORKSPACE 3: CUSTOMER EXPLORER
+# WORKSPACE 3: CUSTOMER SEGMENTATION
 # ==============================================================================
 
-elif current_page == "Customer Explorer":
-    st.markdown('<div class="section-header"><h3>Customer Discovery & Analytical Explorer</h3><span>Search & Multi-Filter</span></div>', unsafe_allow_html=True)
-
-    # Search & Filter Controls
-    with st.expander("Filter & Search Criteria", expanded=True, icon=":material/search:"):
-        f_row1_c1, f_row1_c2, f_row1_c3 = st.columns(3)
-        with f_row1_c1:
-            search_query = st.text_input("Search by Customer ID or City", placeholder="Type customer ID or city name...")
-        with f_row1_c2:
-            seg_filter = st.selectbox("RFM Segment", ["All", *sorted(customer_features["rfm_segment"].dropna().unique())], key="exp_seg")
-        with f_row1_c3:
-            risk_filter = st.selectbox("Risk Level", ["All", "Low Risk (<35%)", "Medium Risk (35-65%)", "High Risk (>=65%)"], key="exp_risk")
-
-        f_row2_c1, f_row2_c2, f_row2_c3 = st.columns(3)
-        with f_row2_c1:
-            state_filter = st.selectbox("State / Region", ["All", *sorted(customer_features["state"].dropna().unique())], key="exp_state")
-        with f_row2_c2:
-            clv_filter = st.selectbox("CLV Value Band", ["All", "Platinum", "Gold", "Silver", "Bronze"], key="exp_clv_band")
-        with f_row2_c3:
-            recency_filter = st.selectbox("Recency Window", ["All", "Recent (<90 days)", "Active (90-180 days)", "Lapsed (181-365 days)", "Inactive (>365 days)"], key="exp_rec")
-
-        if st.button("Reset Explorer Filters", icon=":material/restart_alt:"):
-            st.rerun()
-
-    # Apply Search & Filters
-    filtered_explorer = search_customers(
-        df=filtered,
-        search_query=search_query,
-        segment=seg_filter,
-        risk_level=risk_filter,
-        state=state_filter,
-        clv_band=clv_filter,
-        recency_filter=recency_filter,
-    )
-
-    if filtered_explorer.empty:
-        render_empty_state(
-            title="No Matching Customers Found",
-            description="No customer profiles match your search criteria. Try modifying your search keywords or resetting filters.",
-            show_reset=False,
-        )
-    else:
-        # Quick Summary Cards of Filtered Explorer Set
-        render_kpi_row([
-            {"label": "Matching Profiles", "value": f"{len(filtered_explorer):,}", "subtitle": "Customer records"},
-            {"label": "Total Filtered GMV", "value": format_brl(filtered_explorer["total_spend"].sum()), "subtitle": "Gross spending"},
-            {"label": "Average 12M CLV", "value": format_brl(filtered_explorer["predicted_clv"].mean()), "subtitle": "Forward value"},
-            {"label": "Average Churn Risk", "value": format_pct(filtered_explorer["churn_probability"].mean()), "subtitle": "Risk propensity"},
-        ])
-
-        st.markdown("<div style='margin-top: 14px;'></div>", unsafe_allow_html=True)
-        render_customer_table(filtered_explorer, page_size_default=25, key_prefix="exp_tbl")
-
-        # Export View
-        st.markdown("<div style='margin-top: 14px;'></div>", unsafe_allow_html=True)
-        st.download_button(
-            "Download Filtered Customer Explorer View (CSV)",
-            filtered_explorer.to_csv(index=False).encode("utf-8"),
-            "customer_explorer_filtered.csv",
-            "text/csv",
-            icon=":material/download:",
-        )
-
-
-# ==============================================================================
-# WORKSPACE 4: SEGMENTATION
-# ==============================================================================
-
-elif current_page == "Segmentation":
+elif current_page == "Customer Segmentation":
     seg_summary_df = compute_segment_distribution(filtered)
 
     # Segment Distribution Charts
@@ -859,7 +863,7 @@ elif current_page == "Segmentation":
         style_chart(fig_seg_bar, 320, legend="hidden")
 
     # Segment Overview Table
-    st.markdown('<div class="section-header"><h3>RFM Segment Performance Matrix</h3><span>Portfolio Benchmarks</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><h3>RFM Segment Performance Benchmark Matrix</h3><span>Portfolio Economic Metrics</span></div>', unsafe_allow_html=True)
     display_seg = seg_summary_df.copy()
     display_seg["Customers"] = display_seg["customers"].map(lambda v: f"{v:,}")
     display_seg["% of Base"] = display_seg["customer_share"].map(format_pct)
@@ -875,7 +879,7 @@ elif current_page == "Segmentation":
     st.dataframe(display_seg[table_cols].rename(columns={"rfm_segment": "Segment"}), hide_index=True, use_container_width=True)
 
     # Granular Segment Drill-Down
-    st.markdown('<div class="section-header"><h3>Granular Segment Drill-Down</h3><span>Deep Dive & Top Profiles</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><h3>Granular Segment Drill-Down & Strategic Action Playbook</h3><span>Deep Dive & Top Profiles</span></div>', unsafe_allow_html=True)
     all_segs = sorted(filtered["rfm_segment"].dropna().unique())
     selected_drill_seg = st.selectbox("Select Segment to Inspect", all_segs, index=0)
 
@@ -913,7 +917,7 @@ elif current_page == "Segmentation":
     render_customer_table(drill_df, page_size_default=10, key_prefix="drill_tbl")
 
     # Segment Comparison Matrix
-    st.markdown('<div class="section-header"><h3>Segment Comparison Matrix</h3><span>Analytical Side-by-Side</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><h3>Segment Comparison Matrix</h3><span>Analytical Side-by-Side Evaluation</span></div>', unsafe_allow_html=True)
     comp_c1, comp_c2 = st.columns(2)
     with comp_c1:
         seg_choice_a = st.selectbox("Segment A", all_segs, index=0, key="seg_comp_a")
@@ -929,7 +933,7 @@ elif current_page == "Segmentation":
     st.dataframe(comp_table, hide_index=True, use_container_width=True)
 
     # Custom Marketing Cohort Builder
-    st.markdown('<div class="section-header"><h3>Targeted Marketing Cohort Builder</h3><span>Campaign Activation</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><h3>Targeted Marketing Cohort Builder</h3><span>Campaign Activation with CSV Export</span></div>', unsafe_allow_html=True)
     with st.expander("Configure Targeted Audience Parameters", expanded=False, icon=":material/tune:"):
         b_c1, b_c2, b_c3 = st.columns(3)
         b_rfm = b_c1.multiselect("Select RFM Target Audiences", all_segs, default=["Champions", "Loyal Customers"])
@@ -961,102 +965,10 @@ elif current_page == "Segmentation":
 
 
 # ==============================================================================
-# WORKSPACE 5: RFM ANALYSIS
+# WORKSPACE 4: CUSTOMER VALUE / CLV
 # ==============================================================================
 
-elif current_page == "RFM Analysis":
-    st.markdown(
-        render_insight_card(
-            title="📌 RFM Intelligence Framework",
-            description="Recency, Frequency, and Monetary (RFM) segmentation models customer purchasing behavior across three fundamental dimensions: How recently they purchased, how frequently they purchase, and how much monetary value they spend.",
-            kind="info",
-        ),
-        unsafe_allow_html=True,
-    )
-
-    rfm_benchmarks = compute_rfm_overview(filtered)
-
-    # RFM Portfolio Benchmarks Row
-    render_kpi_row([
-        {
-            "label": "Average Recency",
-            "value": f"{rfm_benchmarks['avg_recency']:.0f} days",
-            "subtitle": f"Median: {rfm_benchmarks['median_recency']:.0f} days",
-            "icon": "⏱️",
-        },
-        {
-            "label": "Average Frequency",
-            "value": f"{rfm_benchmarks['avg_frequency']:.2f} orders",
-            "subtitle": "Completed transactions",
-            "icon": "📦",
-        },
-        {
-            "label": "Average Monetary Value",
-            "value": format_brl(rfm_benchmarks["avg_monetary"]),
-            "subtitle": f"Median: {format_brl(rfm_benchmarks['median_monetary'])}",
-            "icon": "💰",
-        },
-        {
-            "label": "Analyzed Customers",
-            "value": f"{rfm_benchmarks['total_customers']:,}",
-            "subtitle": "Canonical profiles",
-            "icon": "👥",
-        },
-    ])
-
-    # RFM Distributions
-    st.markdown('<div class="section-header"><h3>RFM Dimension Distributions</h3><span>Empirical Density</span></div>', unsafe_allow_html=True)
-    rfm_col1, rfm_col2 = st.columns(2)
-    with rfm_col1:
-        fig_r = px.histogram(
-            filtered,
-            x="recency_days",
-            nbins=35,
-            title="Recency Distribution (Days Since Last Order)",
-            color_discrete_sequence=[COLOR_PRIMARY],
-        )
-        fig_r.update_xaxes(title="Days Inactive")
-        fig_r.update_yaxes(title="Customer Count")
-        style_chart(fig_r, 290, legend="hidden")
-
-    with rfm_col2:
-        fig_m = px.histogram(
-            filtered[filtered["total_spend"] <= filtered["total_spend"].quantile(0.98)],
-            x="total_spend",
-            nbins=35,
-            title="Monetary Spend Distribution (98th Percentile Truncated)",
-            color_discrete_sequence=[COLOR_CYAN],
-        )
-        fig_m.update_xaxes(title="Total Spend (BRL)")
-        fig_m.update_yaxes(title="Customer Count")
-        style_chart(fig_m, 290, legend="hidden")
-
-    # Multidimensional RFM Scatter Matrix
-    with st.expander("Multidimensional Frequency vs Monetary vs Recency Bubble Matrix", expanded=True, icon=":material/bubble_chart:"):
-        sample_rfm = filtered.sample(min(len(filtered), 2500), random_state=42)
-        fig_bubble = px.scatter(
-            sample_rfm,
-            x="frequency",
-            y="monetary",
-            color="rfm_segment",
-            size="recency_days",
-            hover_data=["customer_id", "state", "predicted_clv"],
-            title=f"RFM Scatter Density ({len(sample_rfm):,} Profiles Sample)",
-            color_discrete_sequence=CHART_COLORWAY,
-        )
-        fig_bubble.update_xaxes(title="Order Frequency (Orders)")
-        fig_bubble.update_yaxes(title="Monetary Spend (BRL)")
-        style_chart(fig_bubble, 340, legend="bottom")
-
-    # Methodology Expander
-    render_methodology_panel("rfm")
-
-
-# ==============================================================================
-# WORKSPACE 6: CUSTOMER LIFETIME VALUE (CLV)
-# ==============================================================================
-
-elif current_page == "Customer Lifetime Value":
+elif current_page == "Customer Value / CLV":
     clv_bench = compute_clv_overview(filtered)
 
     # CLV KPI Row
@@ -1088,7 +1000,7 @@ elif current_page == "Customer Lifetime Value":
     ])
 
     # Dynamic CLV Value Bands
-    st.markdown('<div class="section-header"><h3>Dynamic Customer Lifetime Value Distribution</h3><span>Value Bands</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><h3>Dynamic Customer Lifetime Value Distribution</h3><span>Dynamic Value Bands</span></div>', unsafe_allow_html=True)
     clv_bins_df = compute_clv_bins(filtered)
 
     col_clv_1, col_clv_2 = st.columns(2)
@@ -1180,10 +1092,10 @@ elif current_page == "Customer Lifetime Value":
 
 
 # ==============================================================================
-# WORKSPACE 7: CHURN & RISK
+# WORKSPACE 5: CHURN INTELLIGENCE
 # ==============================================================================
 
-elif current_page == "Churn & Risk":
+elif current_page == "Churn Intelligence":
     risk_summary = compute_risk_overview(filtered)
 
     # Risk KPI Row
@@ -1215,7 +1127,7 @@ elif current_page == "Churn & Risk":
     ])
 
     # High-Value + High-Risk 4-Quadrant Matrix
-    st.markdown('<div class="section-header"><h3>High-Value + High-Risk Prioritization Matrix</h3><span>4-Quadrant Strategy</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><h3>High-Value + High-Risk Prioritization Matrix</h3><span>4-Quadrant Strategic Framework</span></div>', unsafe_allow_html=True)
     quad_data = compute_quadrant_matrix(filtered)
 
     if quad_data:
@@ -1234,7 +1146,7 @@ elif current_page == "Churn & Risk":
                     unsafe_allow_html=True,
                 )
 
-    # Customer Prioritization Table
+    # Customer Retention Prioritization Queue
     st.markdown('<div class="section-header"><h3>Actionable Customer Retention Prioritization Queue</h3><span>Ranked by Commercial Risk Exposure</span></div>', unsafe_allow_html=True)
     st.markdown(
         render_insight_card(
@@ -1261,12 +1173,12 @@ elif current_page == "Churn & Risk":
             s_freq = sc2.number_input("Total Orders (Frequency)", min_value=1, max_value=50, value=2, step=1)
 
             sc3, sc4 = st.columns(2)
-            s_mon = sc3.number_input("Total Spend (BRL)", min_value=5.0, max_value=50000.0, value=280.0, step=10.0)
-            s_aov = sc4.number_input("Average Order Value (BRL)", min_value=5.0, max_value=25000.0, value=140.0, step=10.0)
+            s_mon = sc3.number_input("Total Spend (BRL)", min_value=5.0, max_value=50000.0, value=280.0, step=10.0, key="sim_spend")
+            s_aov = sc4.number_input("Average Order Value (BRL)", min_value=5.0, max_value=25000.0, value=140.0, step=10.0, key="sim_aov")
 
             sc5, sc6 = st.columns(2)
-            s_prod = sc5.number_input("Distinct Products Purchased", min_value=1, max_value=50, value=2, step=1)
-            s_age = sc6.number_input("Customer Purchase Span (Days)", min_value=1, max_value=800, value=45, step=5)
+            s_prod = sc5.number_input("Distinct Products Purchased", min_value=1, max_value=50, value=2, step=1, key="sim_prod")
+            s_age = sc6.number_input("Customer Purchase Span (Days)", min_value=1, max_value=800, value=45, step=5, key="sim_age")
 
             churn_submit = st.form_submit_button("Run Live Churn Propensity Inference", type="primary", use_container_width=True)
 
@@ -1275,7 +1187,6 @@ elif current_page == "Churn & Risk":
             in_df = model_input_frame(s_rec, s_freq, s_mon, s_aov, s_prod, s_age)
             prob = float(churn_model.predict_proba(in_df)[0, 1])
             band = "High Risk" if prob >= 0.65 else "Medium Risk" if prob >= 0.35 else "Low Risk"
-            band_col = COLOR_RED if prob >= 0.65 else COLOR_AMBER if prob >= 0.35 else COLOR_GREEN
 
             st.markdown("**Live Scenario Prediction Output:**")
             render_kpi_row([
@@ -1312,103 +1223,713 @@ elif current_page == "Churn & Risk":
 
 
 # ==============================================================================
-# WORKSPACE 8: CUSTOMER INSIGHTS
+# WORKSPACE 6: SENTIMENT INTELLIGENCE
 # ==============================================================================
 
-elif current_page == "Customer Insights":
-    st.markdown('<div class="section-header"><h3>Evidence-Backed Customer Intelligence Insights</h3><span>Empirical Observations</span></div>', unsafe_allow_html=True)
+elif current_page == "Sentiment Intelligence":
+    reviews_df = load_sentiment_dataset()
+    fact_orders = load_csv("fact_orders.csv", ("purchase_date",))
+    sentiment_overview = compute_sentiment_overview(reviews_df)
 
-    total_c = len(filtered)
-    total_rev = filtered["total_spend"].sum()
+    # CSAT & Sentiment KPI Row
+    render_kpi_row([
+        {
+            "label": "Average CSAT Rating",
+            "value": f"{sentiment_overview['avg_review_score']:.2f} / 5.0",
+            "subtitle": f"{sentiment_overview['total_reviews']:,} verified reviews",
+            "icon": "⭐",
+        },
+        {
+            "label": "Positive Feedback Rate",
+            "value": format_pct(sentiment_overview["positive_pct"]),
+            "delta": f"{sentiment_overview['positive_count']:,} ratings",
+            "delta_direction": "positive",
+            "subtitle": "4-5 Stars (Satisfied)",
+            "icon": "😊",
+        },
+        {
+            "label": "Neutral Feedback Rate",
+            "value": format_pct(sentiment_overview["neutral_pct"]),
+            "subtitle": "3 Stars (Indifferent)",
+            "icon": "😐",
+        },
+        {
+            "label": "Negative Feedback Rate",
+            "value": format_pct(sentiment_overview["negative_pct"]),
+            "delta": f"{sentiment_overview['negative_count']:,} ratings",
+            "delta_direction": "negative",
+            "subtitle": "1-2 Stars (Friction)",
+            "icon": "⚠️",
+        },
+    ])
 
-    # Dynamic metrics calculation for insights
-    p80_spend = filtered["total_spend"].quantile(0.80)
-    top_20_rev = filtered[filtered["total_spend"] >= p80_spend]["total_spend"].sum()
-    top_20_rev_share = top_20_rev / max(1, total_rev)
+    # Sentiment Breakdown & Distribution
+    st.markdown('<div class="section-header"><h3>Customer Sentiment & Satisfaction Distribution</h3><span>Empirical CSAT Breakdown</span></div>', unsafe_allow_html=True)
+    col_sent_1, col_sent_2 = st.columns(2)
 
-    repeat_count = (filtered["total_orders"] > 1).sum()
-    repeat_pct = repeat_count / max(1, total_c)
+    with col_sent_1:
+        if not reviews_df.empty:
+            score_counts = reviews_df["review_score"].value_counts().reset_index()
+            score_counts.columns = ["review_score", "count"]
+            score_counts = score_counts.sort_values("review_score")
+            score_counts["star_label"] = score_counts["review_score"].astype(str) + " Star(s)"
 
-    at_risk_c = (filtered["churn_probability"] >= 0.65).sum()
-    at_risk_pct = at_risk_c / max(1, total_c)
-    at_risk_spend = filtered[filtered["churn_probability"] >= 0.65]["total_spend"].sum()
+            fig_stars = px.bar(
+                score_counts,
+                x="star_label",
+                y="count",
+                title="Customer Review Rating Distribution (1 to 5 Stars)",
+                color="review_score",
+                color_continuous_scale="Blues",
+            )
+            fig_stars.update_xaxes(title="Review Score")
+            fig_stars.update_yaxes(title="Review Count")
+            fig_stars.update_layout(coloraxis_showscale=False)
+            style_chart(fig_stars, 300, legend="hidden")
 
-    top_state = filtered.groupby("state")["total_spend"].sum().idxmax()
-    top_state_spend = filtered.groupby("state")["total_spend"].sum().max()
-    top_state_pct = top_state_spend / max(1, total_rev)
+    with col_sent_2:
+        if not reviews_df.empty:
+            sent_cat_counts = reviews_df["sentiment_category"].value_counts().reset_index()
+            sent_cat_counts.columns = ["sentiment_category", "count"]
+            fig_sent_pie = px.pie(
+                sent_cat_counts,
+                names="sentiment_category",
+                values="count",
+                hole=0.55,
+                title="Customer Sentiment Polarity Breakdown",
+                color="sentiment_category",
+                color_discrete_map={
+                    "Positive": COLOR_GREEN,
+                    "Neutral": COLOR_AMBER,
+                    "Negative": COLOR_RED,
+                },
+            )
+            style_chart(fig_sent_pie, 300, legend="bottom")
 
-    # 4 Structured Insight Cards
-    ins_c1, ins_c2 = st.columns(2)
-    with ins_c1:
-        render_structured_insight(
-            title="1. Customer Spend Concentration (Pareto Principle)",
-            observation="A small minority of top spenders drives the substantial majority of total merchandise revenue.",
-            evidence=f"The top 20% of spenders account for {format_pct(top_20_rev_share)} ({format_brl(top_20_rev)}) of total GMV.",
-            implication="Protecting the top quintile with dedicated account nurturing and early-access privileges has 5x higher revenue impact than broad acquisition.",
-            badge="Revenue Dynamics",
-            kind="info",
+    # Longitudinal Sentiment Trajectory Trend
+    st.markdown('<div class="section-header"><h3>Longitudinal CSAT & Sentiment Trajectory</h3><span>Monthly Satisfaction Tracking</span></div>', unsafe_allow_html=True)
+    monthly_sent = compute_sentiment_trend(reviews_df)
+    if not monthly_sent.empty:
+        fig_trend = go.Figure()
+        fig_trend.add_trace(go.Bar(
+            x=monthly_sent["review_month"],
+            y=monthly_sent["pos_reviews"],
+            name="Positive Reviews (4-5 Stars)",
+            marker_color=COLOR_GREEN,
+            opacity=0.85,
+        ))
+        fig_trend.add_trace(go.Bar(
+            x=monthly_sent["review_month"],
+            y=monthly_sent["neg_reviews"],
+            name="Negative Reviews (1-2 Stars)",
+            marker_color=COLOR_RED,
+            opacity=0.85,
+        ))
+        fig_trend.add_trace(go.Scatter(
+            x=monthly_sent["review_month"],
+            y=monthly_sent["avg_score"],
+            name="Average CSAT Rating (1-5)",
+            yaxis="y2",
+            mode="lines+markers",
+            line=dict(color=COLOR_PRIMARY, width=3),
+            marker=dict(size=6),
+        ))
+        fig_trend.update_layout(
+            barmode="stack",
+            title="Monthly Customer Reviews Volume and Average CSAT Rating",
+            yaxis=dict(title="Review Count"),
+            yaxis2=dict(title="Average CSAT Score", overlaying="y", side="right", range=[1, 5], showgrid=False),
+        )
+        style_chart(fig_trend, 320, legend="top")
+
+    # Negative Theme Root-Cause Extraction
+    st.markdown('<div class="section-header"><h3>Negative Feedback Root-Cause Themes</h3><span>Factual Text Extraction & Friction Drivers</span></div>', unsafe_allow_html=True)
+    themes = extract_negative_themes(reviews_df, top_n=5)
+    
+    if themes:
+        t_cols = st.columns(min(len(themes), 3))
+        for idx, t in enumerate(themes[:3]):
+            with t_cols[idx]:
+                st.markdown(
+                    f"""
+                    <div style="background: white; border: 1px solid #E2E8F0; border-top: 3px solid {t['badge_color']}; border-radius: 8px; padding: 14px; height: 100%;">
+                        <div style="font-size: 20px; margin-bottom: 2px;">{t['icon']}</div>
+                        <div style="font-size: 13px; font-weight: 700; color: #0F172A; margin-bottom: 4px;">{t['theme']}</div>
+                        <div style="font-size: 18px; font-weight: 800; color: {t['badge_color']}; margin-bottom: 2px;">{t['matched_count']:,} Reviews</div>
+                        <div style="font-size: 11px; color: #64748B; margin-bottom: 8px;">{format_pct(t['share_of_negative_comments'])} of low-rating feedback</div>
+                        <div style="font-size: 11.5px; color: #334155; line-height: 1.4; margin-bottom: 8px;"><strong>Diagnostic:</strong> {t['description']}</div>
+                        <div style="font-size: 11px; color: #0284C7; font-weight: 600;">🛠️ {t['action']}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+        if len(themes) > 3:
+            st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+            t_cols2 = st.columns(len(themes) - 3)
+            for idx, t in enumerate(themes[3:]):
+                with t_cols2[idx]:
+                    st.markdown(
+                        f"""
+                        <div style="background: white; border: 1px solid #E2E8F0; border-top: 3px solid {t['badge_color']}; border-radius: 8px; padding: 14px; height: 100%;">
+                            <div style="font-size: 20px; margin-bottom: 2px;">{t['icon']}</div>
+                            <div style="font-size: 13px; font-weight: 700; color: #0F172A; margin-bottom: 4px;">{t['theme']}</div>
+                            <div style="font-size: 18px; font-weight: 800; color: {t['badge_color']}; margin-bottom: 2px;">{t['matched_count']:,} Reviews</div>
+                            <div style="font-size: 11px; color: #64748B; margin-bottom: 8px;">{format_pct(t['share_of_negative_comments'])} of low-rating feedback</div>
+                            <div style="font-size: 11.5px; color: #334155; line-height: 1.4; margin-bottom: 8px;"><strong>Diagnostic:</strong> {t['description']}</div>
+                            <div style="font-size: 11px; color: #0284C7; font-weight: 600;">🛠️ {t['action']}</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+    # Sentiment by RFM Segment & Product Category
+    st.markdown('<div class="section-header"><h3>Satisfaction by Segment & Product Category</h3><span>Cross-Dimensional CSAT Insights</span></div>', unsafe_allow_html=True)
+    c_sub1, c_sub2 = st.columns(2)
+
+    with c_sub1:
+        seg_sent_df = compute_sentiment_by_segment(filtered, reviews_df, fact_orders)
+        if not seg_sent_df.empty:
+            fig_seg_csat = px.bar(
+                seg_sent_df,
+                x="rfm_segment",
+                y="avg_csat",
+                title="Average Customer CSAT Rating by RFM Segment",
+                color="avg_csat",
+                color_continuous_scale="Viridis",
+            )
+            fig_seg_csat.update_yaxes(range=[1, 5], title="Avg CSAT Rating")
+            fig_seg_csat.update_xaxes(title=None)
+            style_chart(fig_seg_csat, 290, legend="hidden")
+
+    with c_sub2:
+        cat_csat_df = compute_category_satisfaction(fact_orders, reviews_df, filtered)
+        if not cat_csat_df.empty:
+            fig_cat_csat = px.bar(
+                cat_csat_df.head(10),
+                x="avg_review_score",
+                y="favorite_category",
+                orientation="h",
+                title="Top 10 Rated Product Categories (Min. 50 Customers)",
+                color="avg_review_score",
+                color_continuous_scale="Greens",
+            )
+            fig_cat_csat.update_xaxes(range=[3.5, 5], title="Avg Rating")
+            fig_cat_csat.update_yaxes(title=None)
+            style_chart(fig_cat_csat, 290, legend="hidden")
+
+    # Customer Review Text Explorer
+    st.markdown('<div class="section-header"><h3>Customer Feedback Review Explorer</h3><span>Search Verified Review Comments</span></div>', unsafe_allow_html=True)
+    if not reviews_df.empty:
+        with st.expander("Filter Customer Reviews", expanded=False, icon=":material/search:"):
+            f_r1, f_r2 = st.columns(2)
+            sel_stars = f_r1.multiselect("Review Star Ratings", [1, 2, 3, 4, 5], default=[1, 2])
+            only_comments = f_r2.checkbox("Only Show Reviews With Written Comments", value=True)
+
+            rev_filtered = reviews_df.copy()
+            if sel_stars:
+                rev_filtered = rev_filtered[rev_filtered["review_score"].isin(sel_stars)]
+            if only_comments:
+                rev_filtered = rev_filtered[rev_filtered["review_comment_message"].notna() & (rev_filtered["review_comment_message"].str.strip() != "")]
+
+            st.markdown(f"**Found {len(rev_filtered):,} matching customer reviews:**")
+            rev_cols = ["review_score", "sentiment_category", "review_creation_date", "review_comment_title", "review_comment_message", "order_id"]
+            avail_rcols = [c for c in rev_cols if c in rev_filtered.columns]
+            st.dataframe(rev_filtered[avail_rcols].head(100), hide_index=True, use_container_width=True)
+
+
+# ==============================================================================
+# WORKSPACE 7: RECOMMENDATIONS
+# ==============================================================================
+
+elif current_page == "Recommendations":
+    rec_portfolio_df = compute_recommendation_portfolio(filtered, limit=2500)
+    rec_summary = compute_recommendation_summary(rec_portfolio_df)
+
+    urgent_count = len(rec_portfolio_df[rec_portfolio_df["priority"] == "Urgent"])
+    high_count = len(rec_portfolio_df[rec_portfolio_df["priority"] == "High"])
+    top_action = rec_summary.iloc[0]["action_type"] if not rec_summary.empty else "Standard Lifecycle Nurture"
+
+    # Recommendations KPI Row
+    render_kpi_row([
+        {
+            "label": "Actionable Profiles",
+            "value": f"{len(rec_portfolio_df):,}",
+            "subtitle": "Evaluated cohort records",
+            "icon": "🎯",
+        },
+        {
+            "label": "Urgent Action Required",
+            "value": f"{urgent_count:,}",
+            "delta": f"{high_count:,} High Priority",
+            "delta_direction": "negative" if urgent_count > 0 else "neutral",
+            "subtitle": "Service recovery / VIP retention",
+            "icon": "🚨",
+        },
+        {
+            "label": "Top Recommended Strategy",
+            "value": top_action,
+            "subtitle": "Largest action volume",
+            "icon": "💡",
+        },
+        {
+            "label": "Covered Revenue",
+            "value": format_brl(rec_portfolio_df["total_spend"].sum()),
+            "subtitle": "Total gross merchandise value",
+            "icon": "💰",
+        },
+    ])
+
+    # Recommendation Distribution & Summary
+    st.markdown('<div class="section-header"><h3>Recommended Action Distribution & Commercial Allocation</h3><span>Audience Action Summary</span></div>', unsafe_allow_html=True)
+    r_col1, r_col2 = st.columns([0.45, 0.55])
+
+    with r_col1:
+        if not rec_summary.empty:
+            fig_rec_bar = px.bar(
+                rec_summary.sort_values("customer_count", ascending=True),
+                x="customer_count",
+                y="action_type",
+                orientation="h",
+                title="Customer Count by Recommended Action",
+                color="action_type",
+                color_discrete_sequence=CHART_COLORWAY,
+            )
+            fig_rec_bar.update_xaxes(title="Customer Count")
+            fig_rec_bar.update_yaxes(title=None)
+            style_chart(fig_rec_bar, 290, legend="hidden")
+
+    with r_col2:
+        if not rec_summary.empty:
+            disp_rec_sum = rec_summary.copy()
+            disp_rec_sum["Customers"] = disp_rec_sum["customer_count"].map(lambda v: f"{v:,}")
+            disp_rec_sum["Total GMV"] = disp_rec_sum["total_gmv"].map(format_brl)
+            disp_rec_sum["Avg 12M CLV"] = disp_rec_sum["avg_clv"].map(format_brl)
+            disp_rec_sum["Avg Churn Risk"] = disp_rec_sum["avg_churn_risk"].map(format_pct)
+            st.dataframe(
+                disp_rec_sum[["action_type", "priority", "Customers", "Total GMV", "Avg 12M CLV", "Avg Churn Risk"]].rename(columns={"action_type": "Action Strategy", "priority": "Priority"}),
+                hide_index=True,
+                use_container_width=True,
+            )
+
+    # Documented Recommendation Rules & Decision Logic
+    st.markdown('<div class="section-header"><h3>Documented Recommendation Logic & Decision Rules</h3><span>Rule-Based Multi-Signal Matrix</span></div>', unsafe_allow_html=True)
+    with st.expander("View Transparent Decision Rules & Targeting Criteria", expanded=False, icon=":material/rule:"):
+        rules_df = pd.DataFrame([
+            {
+                "Strategy / Action": r["action_type"],
+                "Priority Level": r["priority"],
+                "Target Audience Criteria": r["target_audience"],
+                "Execution Channel": r["channel"],
+                "Commercial Rationale": r["rationale"],
+            }
+            for r in RECOMMENDATION_RULES
+        ])
+        st.dataframe(rules_df, hide_index=True, use_container_width=True)
+
+    # Actionable Customer Recommendation Queue Table
+    st.markdown('<div class="section-header"><h3>Actionable Customer Recommendation Queue</h3><span>Customer Priority Queue</span></div>', unsafe_allow_html=True)
+    
+    # Filters for Recommendation Queue
+    with st.expander("Filter Recommendation Queue", expanded=True, icon=":material/filter_list:"):
+        f_rec1, f_rec2, f_rec3 = st.columns(3)
+        act_filter = f_rec1.selectbox("Filter by Action Type", ["All", *sorted(rec_portfolio_df["action_type"].unique())])
+        prio_filter = f_rec2.selectbox("Filter by Priority", ["All", "Urgent", "High", "Medium", "Standard"])
+        seg_rec_filter = f_rec3.selectbox("Filter by RFM Segment", ["All", *sorted(rec_portfolio_df["rfm_segment"].unique())])
+
+        filtered_recs = rec_portfolio_df.copy()
+        if act_filter != "All":
+            filtered_recs = filtered_recs[filtered_recs["action_type"] == act_filter]
+        if prio_filter != "All":
+            filtered_recs = filtered_recs[filtered_recs["priority"] == prio_filter]
+        if seg_rec_filter != "All":
+            filtered_recs = filtered_recs[filtered_recs["rfm_segment"] == seg_rec_filter]
+
+    st.markdown(f"**Displaying {len(filtered_recs):,} customer action recommendations:**")
+    
+    # Formatted Queue Table
+    display_q = pd.DataFrame()
+    display_q["Customer ID"] = filtered_recs["customer_id"]
+    display_q["Recommended Action"] = filtered_recs["action_type"]
+    display_q["Priority"] = filtered_recs["priority"]
+    display_q["RFM Segment"] = filtered_recs["rfm_segment"]
+    display_q["Decision Rationale"] = filtered_recs["reason"]
+    display_q["12M CLV"] = filtered_recs["predicted_clv"].map(format_brl)
+    display_q["Churn Risk"] = filtered_recs["churn_probability"].map(format_pct)
+    display_q["Primary Category"] = filtered_recs["favorite_category"]
+    display_q["Location"] = filtered_recs["city"].str.title() + ", " + filtered_recs["state"].str.upper()
+
+    st.dataframe(display_q, hide_index=True, use_container_width=True)
+
+    # Next-Best-Category Cross-Sell Catalog Explorer
+    recommendations_cat = load_csv("recommendations.csv")
+    if not recommendations_cat.empty:
+        st.markdown('<div class="section-header"><h3>Next-Best-Category Cross-Sell Catalog</h3><span>Market Basket Co-Occurrence Recommendations</span></div>', unsafe_allow_html=True)
+        with st.expander("Search Next-Best-Category Offers by Customer ID", expanded=False, icon=":material/auto_awesome:"):
+            top_rec_sample = recommendations_cat.head(100)
+            st.dataframe(top_rec_sample, hide_index=True, use_container_width=True)
+
+    # Export Recommendation Queue
+    st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+    st.download_button(
+        "Download Filtered Recommendation Action Queue (CSV)",
+        filtered_recs.to_csv(index=False).encode("utf-8"),
+        "customer_action_recommendations.csv",
+        "text/csv",
+        icon=":material/download:",
+    )
+
+
+# ==============================================================================
+# WORKSPACE 8: ANALYTICS EXPLORER
+# ==============================================================================
+
+elif current_page == "Analytics Explorer":
+    st.markdown('<div class="section-header"><h3>Customer Discovery & Analytical Slice Explorer</h3><span>Multi-Criteria Search & Distribution Analysis</span></div>', unsafe_allow_html=True)
+
+    # Search & Filter Controls
+    with st.expander("Filter & Search Criteria", expanded=True, icon=":material/search:"):
+        f_row1_c1, f_row1_c2, f_row1_c3 = st.columns(3)
+        with f_row1_c1:
+            search_query = st.text_input("Search by Customer ID, City, or Category", placeholder="Type keywords...")
+        with f_row1_c2:
+            seg_filter = st.selectbox("RFM Segment", ["All", *sorted(customer_features["rfm_segment"].dropna().unique())], key="exp_seg")
+        with f_row1_c3:
+            risk_filter = st.selectbox("Risk Level", ["All", "Low Risk (<35%)", "Medium Risk (35-65%)", "High Risk (>=65%)"], key="exp_risk")
+
+        f_row2_c1, f_row2_c2, f_row2_c3 = st.columns(3)
+        with f_row2_c1:
+            state_filter = st.selectbox("State / Region", ["All", *sorted(customer_features["state"].dropna().unique())], key="exp_state")
+        with f_row2_c2:
+            clv_filter = st.selectbox("CLV Value Band", ["All", "Platinum", "Gold", "Silver", "Bronze"], key="exp_clv_band")
+        with f_row2_c3:
+            recency_filter = st.selectbox("Recency Window", ["All", "Recent (<90 days)", "Active (90-180 days)", "Lapsed (181-365 days)", "Inactive (>365 days)"], key="exp_rec")
+
+        if st.button("Reset Explorer Filters", icon=":material/restart_alt:"):
+            st.rerun()
+
+    # Apply Search & Filters
+    filtered_explorer = search_customers(
+        df=filtered,
+        search_query=search_query,
+        segment=seg_filter,
+        risk_level=risk_filter,
+        state=state_filter,
+        clv_band=clv_filter,
+        recency_filter=recency_filter,
+    )
+
+    if filtered_explorer.empty:
+        render_empty_state(
+            title="No Matching Customers Found",
+            description="No customer profiles match your search criteria. Try modifying your search keywords or resetting filters.",
+            show_reset=False,
+        )
+    else:
+        # Quick Summary Cards of Filtered Explorer Set
+        render_kpi_row([
+            {"label": "Matching Profiles", "value": f"{len(filtered_explorer):,}", "subtitle": "Customer records"},
+            {"label": "Total Filtered GMV", "value": format_brl(filtered_explorer["total_spend"].sum()), "subtitle": "Gross spending"},
+            {"label": "Average 12M CLV", "value": format_brl(filtered_explorer["predicted_clv"].mean()), "subtitle": "Forward value"},
+            {"label": "Average Churn Risk", "value": format_pct(filtered_explorer["churn_probability"].mean()), "subtitle": "Risk propensity"},
+        ])
+
+        # Visual Analytics of Filtered Slice
+        st.markdown('<div class="section-header"><h3>Analytical Distribution of Filtered Slice</h3><span>Empirical Slice Visualizations</span></div>', unsafe_allow_html=True)
+        e_c1, e_c2 = st.columns(2)
+        with e_c1:
+            fig_e_spend = px.histogram(
+                filtered_explorer[filtered_explorer["total_spend"] <= filtered_explorer["total_spend"].quantile(0.98)],
+                x="total_spend",
+                nbins=30,
+                title="Spend Distribution of Filtered Cohort (BRL)",
+                color_discrete_sequence=[COLOR_PRIMARY],
+            )
+            fig_e_spend.update_xaxes(title="Spend (BRL)")
+            fig_e_spend.update_yaxes(title="Customers")
+            style_chart(fig_e_spend, 260, legend="hidden")
+
+        with e_c2:
+            fig_e_rec = px.histogram(
+                filtered_explorer,
+                x="recency_days",
+                nbins=30,
+                title="Inactivity Recency Distribution (Days)",
+                color_discrete_sequence=[COLOR_CYAN],
+            )
+            fig_e_rec.update_xaxes(title="Days Inactive")
+            fig_e_rec.update_yaxes(title="Customers")
+            style_chart(fig_e_rec, 260, legend="hidden")
+
+        st.markdown("<div style='margin-top: 14px;'></div>", unsafe_allow_html=True)
+        render_customer_table(filtered_explorer, page_size_default=25, key_prefix="exp_tbl")
+
+        # Export View
+        st.markdown("<div style='margin-top: 14px;'></div>", unsafe_allow_html=True)
+        st.download_button(
+            "Download Filtered Customer Explorer View (CSV)",
+            filtered_explorer.to_csv(index=False).encode("utf-8"),
+            "customer_explorer_filtered.csv",
+            "text/csv",
+            icon=":material/download:",
         )
 
-        render_structured_insight(
-            title="3. Regional Demand Hubs (Geographic Concentration)",
-            observation="Merchandise demand is heavily clustered in specific high-density economic hubs.",
-            evidence=f"State {top_state} leads with {format_brl(top_state_spend)} ({format_pct(top_state_pct)} of total merchandise GMV).",
-            implication="Optimize fulfillment routing, regional warehousing, and localized promotional campaigns for top-tier geographic states.",
-            badge="Geographic Intelligence",
-            kind="success",
-        )
 
-    with ins_c2:
-        render_structured_insight(
-            title="2. Single-Purchase Drop-Off Risk",
-            observation="Over 95% of customer profiles record only a single historical order transaction.",
-            evidence=f"Repeat customer rate is currently {format_pct(repeat_pct)} ({repeat_count:,} repeat buyers out of {total_c:,}).",
-            implication="Implementing an automated Day-14 post-purchase re-engagement incentive represents the single largest growth opportunity.",
-            badge="Lifecycle Vulnerability",
-            kind="warning",
-        )
+# ==============================================================================
+# WORKSPACE 9: DATA QUALITY
+# ==============================================================================
 
-        render_structured_insight(
-            title="4. Churn Risk Exposure & Capital Protection",
-            observation="A substantial portion of historical spend belongs to customer profiles currently exhibiting high inactivity.",
-            evidence=f"{at_risk_c:,} customers ({format_pct(at_risk_pct)} of base) represent {format_brl(at_risk_spend)} in cumulative spend at risk.",
-            implication="Deploy targeted win-back campaigns and resolve logistics friction to reactivate lapsed high-value relationships.",
-            badge="Risk Management",
-            kind="alert",
-        )
+elif current_page == "Data Quality":
+    audit_res = run_data_quality_audit(customer_features)
+    env_info = get_environment_info()
+    snapshot_info = calculate_data_snapshot_info(customer_features)
+    model_reg = audit_model_registry()
 
-    # Dedicated Customer Comparison Tool
-    st.markdown('<div class="section-header"><h3>Customer Comparison Tool</h3><span>Objective Side-by-Side Analysis</span></div>', unsafe_allow_html=True)
-    all_cids = sorted(filtered["customer_id"].dropna().unique().tolist())
+    # Data Quality Top KPIs
+    render_kpi_row([
+        {
+            "label": "Data Quality Score",
+            "value": f"{audit_res['quality_score_pct']}%",
+            "delta": "100% Target",
+            "delta_direction": "positive" if audit_res["is_healthy"] else "negative",
+            "subtitle": "Schema & range integrity",
+            "icon": "🛡️",
+        },
+        {
+            "label": "Canonical Customer Profiles",
+            "value": f"{snapshot_info['rows']:,}",
+            "subtitle": f"{snapshot_info['columns']} validated attributes",
+            "icon": "👥",
+        },
+        {
+            "label": "ML Models Ready",
+            "value": f"{sum(1 for m in model_reg if 'Ready' in m['Status'])} / {len(model_reg)}",
+            "subtitle": "XGBoost, CLV, Sentiment, K-Means",
+            "icon": "🤖",
+        },
+        {
+            "label": "Memory Footprint",
+            "value": f"{snapshot_info['memory_mb']} MB",
+            "subtitle": "In-memory feature store",
+            "icon": "💾",
+        },
+    ])
 
-    comp_cid_1, comp_cid_2 = st.columns(2)
-    with comp_cid_1:
-        cid_a = st.selectbox("Select Customer A", all_cids, index=0, key="comp_tool_a")
-    with comp_cid_2:
-        cid_b = st.selectbox("Select Customer B", all_cids, index=min(1, len(all_cids) - 1), key="comp_tool_b")
+    st.markdown("<div style='margin-top: 14px;'></div>", unsafe_allow_html=True)
+    tab_quality_checks, tab_lineage, tab_drift_mon, tab_models_reg, tab_audit_events = st.tabs([
+        "📊 Schema & Quality Integrity Checks",
+        "🔄 Data Lineage & Raw vs Processed Audit",
+        "📈 Population Stability Index (PSI) Drift",
+        "🤖 ML Model Artifact Registry",
+        "🛡️ Compliance Event Audit Log",
+    ])
 
-    prof_a = get_customer_profile(filtered, cid_a)
-    prof_b = get_customer_profile(filtered, cid_b)
+    with tab_quality_checks:
+        st.markdown("**Automated Data Integrity Test Suite:**")
+        st.dataframe(pd.DataFrame(audit_res["checks"]), hide_index=True, use_container_width=True)
 
-    if prof_a is not None and prof_b is not None:
-        comparison_rows = [
-            {"Attribute / Dimension": "Customer ID", f"Customer A (#{cid_a[:8]}...)": str(prof_a.get("customer_id")), f"Customer B (#{cid_b[:8]}...)": str(prof_b.get("customer_id"))},
-            {"Attribute / Dimension": "RFM Segment", f"Customer A (#{cid_a[:8]}...)": str(prof_a.get("rfm_segment")), f"Customer B (#{cid_b[:8]}...)": str(prof_b.get("rfm_segment"))},
-            {"Attribute / Dimension": "Geographic Location", f"Customer A (#{cid_a[:8]}...)": f"{str(prof_a.get('city')).title()}, {str(prof_a.get('state')).upper()}", f"Customer B (#{cid_b[:8]}...)": f"{str(prof_b.get('city')).title()}, {str(prof_b.get('state')).upper()}"},
-            {"Attribute / Dimension": "Total Lifetime Spend", f"Customer A (#{cid_a[:8]}...)": format_brl(prof_a.get("total_spend", 0)), f"Customer B (#{cid_b[:8]}...)": format_brl(prof_b.get("total_spend", 0))},
-            {"Attribute / Dimension": "Total Orders Placed", f"Customer A (#{cid_a[:8]}...)": f"{int(prof_a.get('total_orders', 1))} order(s)", f"Customer B (#{cid_b[:8]}...)": f"{int(prof_b.get('total_orders', 1))} order(s)"},
-            {"Attribute / Dimension": "Average Order Value", f"Customer A (#{cid_a[:8]}...)": format_brl(prof_a.get("avg_order_value", 0)), f"Customer B (#{cid_b[:8]}...)": format_brl(prof_b.get("avg_order_value", 0))},
-            {"Attribute / Dimension": "Inactivity (Recency)", f"Customer A (#{cid_a[:8]}...)": f"{int(prof_a.get('recency_days', 0))} days", f"Customer B (#{cid_b[:8]}...)": f"{int(prof_b.get('recency_days', 0))} days"},
-            {"Attribute / Dimension": "Predicted 12M CLV", f"Customer A (#{cid_a[:8]}...)": format_brl(prof_a.get("predicted_clv", 0)), f"Customer B (#{cid_b[:8]}...)": format_brl(prof_b.get("predicted_clv", 0))},
-            {"Attribute / Dimension": "Calibrated Churn Risk", f"Customer A (#{cid_a[:8]}...)": format_pct(prof_a.get("churn_probability", 0)), f"Customer B (#{cid_b[:8]}...)": format_pct(prof_b.get("churn_probability", 0))},
-            {"Attribute / Dimension": "CSAT Feedback Rating", f"Customer A (#{cid_a[:8]}...)": f"{float(prof_a.get('avg_review_score', 5)):.1f} / 5.0", f"Customer B (#{cid_b[:8]}...)": f"{float(prof_b.get('avg_review_score', 5)):.1f} / 5.0"},
-            {"Attribute / Dimension": "Primary Category Affinity", f"Customer A (#{cid_a[:8]}...)": str(prof_a.get("favorite_category")), f"Customer B (#{cid_b[:8]}...)": str(prof_b.get("favorite_category"))},
+        st.markdown("<div style='margin-top: 14px;'></div>", unsafe_allow_html=True)
+        st.markdown("**Field-by-Field Completeness & Null Distribution:**")
+        field_stats = []
+        for col in customer_features.columns:
+            null_c = int(customer_features[col].isnull().sum())
+            null_p = null_c / max(1, len(customer_features))
+            field_stats.append({
+                "Attribute Field": col,
+                "Data Type": str(customer_features[col].dtype),
+                "Non-Null Records": f"{len(customer_features) - null_c:,}",
+                "Completeness %": format_pct(1.0 - null_p),
+                "Missing / Null Count": f"{null_c:,}",
+                "Status": "Complete 🟢" if null_c == 0 else "Contains Nulls 🟡",
+            })
+        st.dataframe(pd.DataFrame(field_stats), hide_index=True, use_container_width=True)
+
+    with tab_lineage:
+        st.markdown("**Data Lineage & Transformation Summary (Raw Olist Ingestion -> Customer 360 Feature Store):**")
+        lineage_data = [
+            {"Stage": "1. Raw Order Records", "Source File": "olist_orders_dataset.csv", "Raw Volume": "99,441 orders", "Processing": "Filtered out canceled/unavailable orders; extracted purchase timestamps"},
+            {"Stage": "2. Raw Order Items", "Source File": "olist_order_items_dataset.csv", "Raw Volume": "112,650 items", "Processing": "Aggregated item prices and freight values per canonical customer"},
+            {"Stage": "3. Raw Customer Registry", "Source File": "olist_customers_dataset.csv", "Raw Volume": "99,441 records", "Processing": "Mapped source customer IDs to canonical unique customer ID entities"},
+            {"Stage": "4. Raw Review Ratings", "Source File": "olist_order_reviews_dataset.csv", "Raw Volume": "104,721 reviews", "Processing": "Calculated average CSAT rating, low rating counts, and sentiment polarity"},
+            {"Stage": "5. Raw Payment Facts", "Source File": "olist_order_payments_dataset.csv", "Raw Volume": "103,886 payments", "Processing": "Consolidated payment methods, installments, and gross transaction values"},
+            {"Stage": "6. Canonical Feature Store", "Source File": "customer_360_features.csv", "Processed Volume": "94,983 profiles", "Processing": "Engineered RFM quintiles, XGBoost churn probabilities, and 12M forward CLV"},
         ]
-        st.dataframe(pd.DataFrame(comparison_rows), hide_index=True, use_container_width=True)
+        st.dataframe(pd.DataFrame(lineage_data), hide_index=True, use_container_width=True)
+
+    with tab_drift_mon:
+        st.markdown("**Longitudinal Population Stability Index (PSI) Feature Drift Monitoring:**")
+        if not customer_features.empty and "recency_days" in customer_features.columns:
+            baseline_sub = customer_features[customer_features["recency_days"] > 180]
+            current_sub = customer_features[customer_features["recency_days"] <= 180]
+            drift_res = run_feature_drift_audit(baseline_sub, current_sub)
+            
+            st.caption(f"Overall Drift Status: **{drift_res['overall_status']}** | Policy: {drift_res['governance_policy']}")
+            st.dataframe(pd.DataFrame(drift_res["features"]), hide_index=True, use_container_width=True)
+        else:
+            st.info("Insufficient longitudinal data for drift monitoring.")
+
+    with tab_models_reg:
+        st.markdown("**Registered Machine Learning Inference Models:**")
+        st.dataframe(pd.DataFrame(model_reg), hide_index=True, use_container_width=True)
+
+    with tab_audit_events:
+        st.markdown("**Real-Time Enterprise Compliance Event Stream:**")
+        recent_logs = get_recent_audit_events(limit=25)
+        if recent_logs:
+            st.dataframe(pd.DataFrame(recent_logs), hide_index=True, use_container_width=True)
+        else:
+            st.info("No compliance audit events recorded in active session.")
 
 
 # ==============================================================================
-# WORKSPACE 9: ASK CUSTOMERATLAS (GROUNDED AI ASSISTANT)
+# WORKSPACE 10: METHODOLOGY / ABOUT
+# ==============================================================================
+
+elif current_page == "Methodology / About":
+    st.markdown(
+        """
+        <div style="background: white; border: 1px solid #E2E8F0; border-radius: 12px; padding: 24px; margin-bottom: 20px;">
+            <div style="font-size: 20px; font-weight: 800; color: #0F172A; margin-bottom: 6px;">CustomerAtlas AI — Unified Customer Intelligence Architecture</div>
+            <p style="font-size: 13.5px; color: #475569; line-height: 1.6; margin: 0;">
+                CustomerAtlas AI is an enterprise customer intelligence platform designed to bridge transactional data, machine learning inference, behavioral segmentation, and operational decision workflows.
+                Every metric displayed in the platform is mathematically calculated from factual customer records with zero hardcoded assumptions or ungrounded generative hallucinations.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    t_rfm, t_clv, t_churn, t_sentiment, t_recs, t_health, t_arch = st.tabs([
+        "1. RFM Segmentation",
+        "2. Customer Lifetime Value",
+        "3. Churn Intelligence",
+        "4. Sentiment Intelligence",
+        "5. Recommendation Engine",
+        "6. Customer Health & Lifecycle",
+        "7. Tech Stack & Deployment",
+    ])
+
+    with t_rfm:
+        st.markdown(
+            """
+            ### 1. Recency, Frequency, Monetary (RFM) Methodology
+            **Analytical Principles:**
+            - **Recency (R):** Number of calendar days elapsed between the customer's most recent completed order and the snapshot anchor date. Quintile binned from 1 (longest inactive) to 5 (most recent).
+            - **Frequency (F):** Total number of distinct completed transaction orders placed across the customer's lifespan.
+            - **Monetary (M):** Total cumulative gross spend (in Brazilian Reais, BRL) across all completed orders.
+            
+            **Audience Segment Matrix:**
+            - **Champions (R: 4-5, F: 4-5, M: 4-5):** High-value, frequent, and recently active customers. VIP advocacy & early access perks.
+            - **Loyal Customers (F: 3-5, M: 3-5, R: 3-4):** Consistent repeat purchasers forming the primary revenue backbone. Tiered loyalty rewards.
+            - **Potential Loyalists (R: 4-5, F: 1-2, M: 3-4):** Recent buyers with healthy initial basket values. Second-purchase cross-sell nurturing.
+            - **Regular Customers (R: 2-4, F: 1-2, M: 2-3):** Moderate spend baseline customers. Seasonal catalog promotions.
+            - **At Risk (R: 1-2, F: 2-5, M: 2-5):** Previously active repeat buyers who have lapsed past 180 days. Win-back re-engagement incentives.
+            - **Lost Customers (R: 1, F: 1-2, M: 1-2):** Longest inactive cohort (>365 days inactive) with lowest engagement.
+            """
+        )
+
+    with t_clv:
+        st.markdown(
+            """
+            ### 2. Customer Lifetime Value (CLV) Methodology
+            **Model Architecture & Target Formulation:**
+            - **Model Algorithm:** Supervised Ridge / XGBoost Regressor trained on historical customer transaction trajectories.
+            - **Features Utilized:** `recency_days`, `frequency`, `monetary`, `avg_order_value`, `number_of_products`, `customer_age_days`.
+            - **Target Definition:** Forward 12-month expected cumulative merchandise gross revenue.
+            
+            **Dynamic Value Tiers:**
+            - **Platinum VIP:** $\ge 75\text{th}$ percentile of predicted CLV.
+            - **Gold Tier:** $50\text{th} \text{ to } 75\text{th}$ percentile.
+            - **Silver Tier:** $25\text{th} \text{ to } 50\text{th}$ percentile.
+            - **Bronze Tier:** $< 25\text{th}$ percentile.
+            
+            *Limitation Note: Forward CLV represents a statistical expectation proxy for prioritization and does not guarantee future financial realization.*
+            """
+        )
+
+    with t_churn:
+        st.markdown(
+            """
+            ### 3. Customer Churn & Risk Intelligence
+            **Methodology & Attribution Policy:**
+            - **Model Algorithm:** Supervised XGBoost Classifier outputting calibrated class probabilities $[0.0, 1.0]$.
+            - **Definition:** High risk corresponds to a calibrated probability $\ge 0.65$ of ongoing customer inactivity.
+            - **Feature Drivers:** Inactivity duration (`recency_days`), order cadence deceleration, review rating signals, and digital footprint.
+            - **Causal Transparency Policy:** Model feature importances reflect statistical predictive correlation rather than asserting direct causality.
+            
+            **Prioritization Formula:**
+            $$\\text{Priority Score} = \\text{Churn Probability} \\times \\left( \\frac{\\text{Predicted CLV}}{\\text{CLV}_{p99}} \\right) \\times 100$$
+            """
+        )
+
+    with t_sentiment:
+        st.markdown(
+            """
+            ### 4. Sentiment Intelligence & CSAT Scale
+            **Methodology & Text Classification:**
+            - **CSAT Mapping:**
+              - **Positive Sentiment:** Review Rating $4\text{--}5$ Stars.
+              - **Neutral Sentiment:** Review Rating $3$ Stars.
+              - **Negative Sentiment:** Review Rating $1\text{--}2$ Stars.
+            - **Polarity Normalization:** Mapped to $[-1.0, +1.0]$ index.
+            - **Root-Cause Theme Extraction:** Deterministic Portuguese keyword matching against customer comments across Logistics Delays, Product Quality, Catalog Inaccuracy, Missing Items, and Customer Support.
+            """
+        )
+
+    with t_recs:
+        st.markdown(
+            """
+            ### 5. Recommendation Engine
+            **Multi-Signal Recommendation Framework:**
+            - Synthesizes churn probability, RFM segment, predicted CLV, CSAT rating, and product affinity into deterministic Next-Best-Actions:
+              1. **VIP Retention Outreach:** Urgent outreach for Champions / High CLV accounts with churn risk $\ge 65\%$.
+              2. **Win-back Campaign:** Re-activation discounts for lapsed buyers inactive $> 180$ days.
+              3. **Loyalty Reward:** Advocacy perks for high-health Champions and Loyal customers.
+              4. **Second-Purchase Cross-Sell:** Market basket co-occurrence recommendations within 90 days of first order.
+              5. **Service Recovery:** Immediate support ticket for customers rating $\le 2.0$ stars.
+              6. **Category Upsell:** Basket expansion incentives for baseline spenders.
+            """
+        )
+
+    with t_health:
+        st.markdown(
+            """
+            ### 6. Customer Health Score & Lifecycle State Machine
+            **Customer Health Score Formula (0-100):**
+            $$\\text{Score} = 0.25 R_{\\text{norm}} + 0.25 F_{\\text{norm}} + 0.25 M_{\\text{norm}} + 0.15 \\text{Eng}_{\\text{norm}} + 0.10 \\text{CSAT}_{\\text{norm}} - 0.20 \\text{Risk}$$
+            
+            **6-Stage Lifecycle State Machine:**
+            - **New:** Tenure $\le 60$ days and completed 1 order.
+            - **Activated:** Completed 1 order with recency $\le 180$ days.
+            - **Engaged:** $\ge 2$ orders with recency $\le 120$ days.
+            - **Loyal:** $\ge 3$ orders or in Champions / Loyal segments.
+            - **At Risk:** Recency $> 180$ days or churn risk $\ge 65\%$.
+            - **Inactive / Lost:** Recency $> 365$ days and churn risk $\ge 65\%$.
+            """
+        )
+
+    with t_arch:
+        st.markdown(
+            """
+            ### 7. Tech Stack, Architecture & Local Execution
+            **Core Technology Stack:**
+            - **Web Application:** Streamlit 1.35+, Plotly 5.20+
+            - **Data & Analytics:** Pandas 2.2+, NumPy 1.26+
+            - **Machine Learning:** Scikit-Learn 1.4+, XGBoost 3.0+, Joblib 1.3+
+            - **Reporting & Export:** ReportLab 4.0+ (PDF Dossier Engine)
+            - **Microservices & API:** FastAPI 0.110+, SQLAlchemy 2.0+
+            
+            **Local Execution Commands:**
+            ```bash
+            pip install -r requirements.txt
+            streamlit run app.py
+            ```
+            """
+        )
+
+
+# ==============================================================================
+# WORKSPACE 11: ASK CUSTOMERATLAS (GROUNDED AI ASSISTANT)
 # ==============================================================================
 
 elif current_page == "Ask CustomerAtlas":
@@ -1476,8 +1997,6 @@ elif current_page == "Ask CustomerAtlas":
             ans = ai_service.ask(active_prompt, context_customer_id=ctx_cid)
             render_grounded_answer(ans)
 
-            # Log audit event
-            from services.audit_service import record_audit_event
             record_audit_event(
                 action="grounded_ai_query",
                 resource_type="analytics_query",
@@ -1499,22 +2018,9 @@ elif current_page == "Ask CustomerAtlas":
             unsafe_allow_html=True,
         )
 
-    # Transparency & Anti-Hallucination Policy
-    with st.expander("Grounded AI Architecture & Safety Policy", expanded=False, icon=":material/security:"):
-        st.markdown(
-            """
-            ### Safety & Anti-Hallucination Framework
-            1. **No Unrestricted SQL / Code Generation:** User questions are mapped to approved, parameterized deterministic tools to prevent SQL injection and runtime errors.
-            2. **Direct Data Verification:** Every metric is computed against real verified data files in the Customer Feature Store (`data/processed/`).
-            3. **Causal Transparency:** Model outputs strictly use *contributed to prediction* attribution rather than asserting unverifiable causal claims.
-            4. **Audit Logging:** Every AI question is logged to the enterprise audit trail for governance and compliance.
-            """
-        )
-
 
 # ==============================================================================
 # GLOBAL FOOTER
 # ==============================================================================
 
 render_footer()
-

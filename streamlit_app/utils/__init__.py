@@ -1,4 +1,4 @@
-"""Utilities package for CustomerAtlas."""
+"""Compatibility re-exports for streamlit_app.utils -> canonical utils package."""
 
 from utils.formatting import (
     format_number,

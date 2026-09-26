@@ -90,3 +90,32 @@ def test_data_loader_and_preprocessing(sample_customer_df: pd.DataFrame):
     assert "f_score" in scored.columns
     assert "m_score" in scored.columns
     assert "rfm_score" in scored.columns
+
+
+def test_overview_cohort_calculations(sample_customer_df: pd.DataFrame):
+    df = sample_customer_df
+    total_customers = df["customer_id"].nunique()
+
+    healthy_cohorts = ["Champions", "Loyal Customers", "Potential Loyalists"]
+    h_count = int(df[df["rfm_segment"].isin(healthy_cohorts)]["customer_id"].count())
+    h_rev = float(df[df["rfm_segment"].isin(healthy_cohorts)]["total_spend"].sum())
+    h_pct = h_count / max(1, total_customers)
+
+    reg_count = int(df[df["rfm_segment"] == "Regular Customers"]["customer_id"].count())
+    reg_rev = float(df[df["rfm_segment"] == "Regular Customers"]["total_spend"].sum())
+    reg_pct = reg_count / max(1, total_customers)
+
+    risk_cohort_count = int(df[df["rfm_segment"] == "At Risk"]["customer_id"].count())
+    risk_cohort_rev = float(df[df["rfm_segment"] == "At Risk"]["total_spend"].sum())
+    risk_cohort_pct = risk_cohort_count / max(1, total_customers)
+
+    lost_cohort_count = int(df[df["rfm_segment"] == "Lost Customers"]["customer_id"].count())
+    lost_cohort_rev = float(df[df["rfm_segment"] == "Lost Customers"]["total_spend"].sum())
+    lost_cohort_pct = lost_cohort_count / max(1, total_customers)
+
+    assert total_customers > 0
+    assert h_count + reg_count + risk_cohort_count + lost_cohort_count <= total_customers
+    assert 0.0 <= lost_cohort_pct <= 1.0
+    assert lost_cohort_count >= 0
+    assert lost_cohort_rev >= 0.0
+

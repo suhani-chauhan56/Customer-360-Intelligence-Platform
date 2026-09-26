@@ -502,9 +502,12 @@ if current_page == "Executive Overview":
         risk_cohort_rev = float(filtered[filtered["rfm_segment"] == "At Risk"]["total_spend"].sum())
         risk_cohort_pct = risk_cohort_count / max(1, total_customers)
 
-        lost_count = int(filtered[filtered["rfm_segment"] == "Lost Customers"]["customer_id"].count())
-        lost_rev = float(filtered[filtered["rfm_segment"] == "Lost Customers"]["total_spend"].sum())
-        lost_pct = lost_count / max(1, total_customers)
+        lost_cohort_count = int(filtered[filtered["rfm_segment"] == "Lost Customers"]["customer_id"].count())
+        lost_cohort_rev = float(filtered[filtered["rfm_segment"] == "Lost Customers"]["total_spend"].sum())
+        lost_cohort_pct = lost_cohort_count / max(1, total_customers)
+        lost_count = lost_cohort_count
+        lost_rev = lost_cohort_rev
+        lost_pct = lost_cohort_pct
 
         st.markdown(
             f"""
@@ -533,9 +536,9 @@ if current_page == "Executive Overview":
                 <div style="background: white; border: 1px solid #E2E8F0; border-left: 4px solid #DC2626; border-radius: 8px; padding: 12px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <span style="font-size: 13px; font-weight: 700; color: #0F172A;">Lost Inactive Accounts</span>
-                        <span style="font-size: 13px; font-weight: 800; color: #DC2626;">{format_pct(lost_cohort_pct)} ({lost_count:,} profiles)</span>
+                        <span style="font-size: 13px; font-weight: 800; color: #DC2626;">{format_pct(lost_cohort_pct)} ({lost_cohort_count:,} profiles)</span>
                     </div>
-                    <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Extended inactivity (>365d) • {format_brl(lost_rev)} GMV</div>
+                    <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Extended inactivity (>365d) • {format_brl(lost_cohort_rev)} GMV</div>
                 </div>
             </div>
             """,

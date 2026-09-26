@@ -1,62 +1,23 @@
-"""Reusable enterprise KPI card components for CustomerAtlas.
+"""Enterprise KPI metric card components for CustomerAtlas.
 
-Provides standardized B2B metric presentation supporting labels, values,
-delta percentages, trends, and contextual micro-descriptions.
+Provides native, robust B2B metric presentation supporting labels, values,
+deltas, trends, icons, and contextual micro-descriptions with zero raw HTML leakage.
 """
 
 from typing import Any, Dict, List, Optional
 import streamlit as st
 
 
-def render_kpi_card(
-    label: str,
-    value: str,
-    delta: Optional[str] = None,
-    delta_direction: str = "neutral",  # 'positive', 'negative', or 'neutral'
-    subtitle: Optional[str] = None,
-    icon: Optional[str] = None,
-) -> str:
-    """Generate HTML markup for a single enterprise KPI card."""
-    icon_html = f'<span class="kpi-card-icon">{icon}</span>' if icon else ""
-
-    delta_html = ""
-    if delta:
-        delta_class = f"kpi-delta-badge {delta_direction}"
-        delta_arrow = "▲ " if delta_direction == "positive" else "▼ " if delta_direction == "negative" else ""
-        delta_html = f'<span class="{delta_class}">{delta_arrow}{delta}</span>'
-
-    footer_content = ""
-    if delta_html or subtitle:
-        sub_text = f"<span>{subtitle}</span>" if subtitle else ""
-        footer_content = f"""
-        <div class="kpi-card-footer">
-            {delta_html}
-            {sub_text}
-        </div>
-        """
-
-    return f"""
-    <div class="kpi-card">
-        <div class="kpi-card-header">
-            <span class="kpi-card-label">{label}</span>
-            {icon_html}
-        </div>
-        <div class="kpi-card-value">{value}</div>
-        {footer_content}
-    </div>
-    """
-
-
 def render_kpi_row(cards: List[Dict[str, Any]]) -> None:
-    """Render a row of enterprise KPI cards dynamically sized across columns.
+    """Render a row of enterprise KPI cards using native Streamlit containers and metrics.
 
     Each card dict accepts:
-        - label (str)
-        - value (str)
-        - delta (Optional[str])
-        - delta_direction (Optional[str]: 'positive', 'negative', 'neutral')
-        - subtitle (Optional[str])
-        - icon (Optional[str])
+        - label (str): Metric label/title
+        - value (str): Primary formatted value
+        - delta (Optional[str]): Delta change value
+        - delta_direction (Optional[str]): 'positive', 'negative', 'neutral'
+        - subtitle (Optional[str]): Micro-description or context
+        - icon (Optional[str]): Emoji or icon prefix
     """
     if not cards:
         return
@@ -64,12 +25,57 @@ def render_kpi_row(cards: List[Dict[str, Any]]) -> None:
     cols = st.columns(len(cards))
     for idx, card_def in enumerate(cards):
         with cols[idx]:
-            html = render_kpi_card(
-                label=card_def.get("label", ""),
-                value=card_def.get("value", "0"),
-                delta=card_def.get("delta"),
-                delta_direction=card_def.get("delta_direction", "neutral"),
-                subtitle=card_def.get("subtitle"),
-                icon=card_def.get("icon"),
-            )
-            st.markdown(html, unsafe_allow_html=True)
+            with st.container(border=True):
+                label = card_def.get("label", "")
+                icon = card_def.get("icon", "")
+                icon_prefix = f"{icon} " if icon else ""
+                
+                delta = card_def.get("delta")
+                direction = card_def.get("delta_direction", "neutral")
+                
+                if direction == "positive":
+                    delta_color = "normal"
+                elif direction == "negative":
+                    delta_color = "inverse"
+                else:
+                    delta_color = "off"
+
+                st.metric(
+                    label=f"{icon_prefix}{label}",
+                    value=card_def.get("value", "0"),
+                    delta=delta,
+                    delta_color=delta_color if delta else "off",
+                )
+                
+                subtitle = card_def.get("subtitle")
+                if subtitle:
+                    st.caption(subtitle)
+
+
+def render_kpi_card(
+    label: str,
+    value: str,
+    delta: Optional[str] = None,
+    delta_direction: str = "neutral",
+    subtitle: Optional[str] = None,
+    icon: Optional[str] = None,
+) -> None:
+    """Render a single enterprise KPI card in the active column."""
+    with st.container(border=True):
+        icon_prefix = f"{icon} " if icon else ""
+        direction = delta_direction.lower()
+        if direction == "positive":
+            delta_color = "normal"
+        elif direction == "negative":
+            delta_color = "inverse"
+        else:
+            delta_color = "off"
+
+        st.metric(
+            label=f"{icon_prefix}{label}",
+            value=value,
+            delta=delta,
+            delta_color=delta_color if delta else "off",
+        )
+        if subtitle:
+            st.caption(subtitle)

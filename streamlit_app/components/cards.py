@@ -15,12 +15,7 @@ def render_insight_card(
 ) -> str:
     """Generate HTML for an enterprise insight card with status color accent."""
     class_name = f"insight-card {kind}" if kind in {"warning", "alert", "info", "success"} else "insight-card"
-    return f"""
-    <div class="{class_name}">
-        <div class="insight-title">{title}</div>
-        <p class="insight-desc">{description}</p>
-    </div>
-    """
+    return f'<div class="{class_name}"><div class="insight-title">{title}</div><p class="insight-desc">{description}</p></div>'
 
 
 def render_insight_grid(insights: List[Dict[str, str]]) -> None:
@@ -48,16 +43,14 @@ def render_recommendation_card(
     method: str = "Basket Association",
 ) -> str:
     """Generate HTML for an explainable Next-Best-Offer recommendation card."""
-    return f"""
-    <div class="rec-card">
-        <span class="rec-card-rank">#{rank}</span>
-        <div class="rec-card-title">{category}</div>
-        <p class="rec-card-reason"><strong>Logic:</strong> {reason}</p>
-        <div style="margin-top: 8px; font-size: 11px; color: var(--primary); font-weight: 600;">
-            Engine: {method}
-        </div>
-    </div>
-    """
+    return (
+        f'<div class="rec-card">'
+        f'<span class="rec-card-rank">#{rank}</span>'
+        f'<div class="rec-card-title">{category}</div>'
+        f'<p class="rec-card-reason"><strong>Logic:</strong> {reason}</p>'
+        f'<div style="margin-top: 8px; font-size: 11px; color: var(--primary); font-weight: 600;">Engine: {method}</div>'
+        f'</div>'
+    )
 
 
 def render_customer_hero(
@@ -73,35 +66,23 @@ def render_customer_hero(
 ) -> None:
     """Render the top profile summary card in the Customer 360 Dossier."""
     initial = str(rfm_segment)[0] if rfm_segment else "C"
-    st.markdown(
-        f"""
-        <div class="customer-hero-card">
-            <div style="display: flex; align-items: center; gap: 16px;">
-                <div style="width: 52px; height: 52px; border-radius: 10px; background: var(--primary); display: flex; align-items: center; justify-content: center; color: white; font-size: 22px; font-weight: 800; box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35);">
-                    {initial}
-                </div>
-                <div>
-                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                        <span style="font-size: 18px; font-weight: 800; color: var(--text-primary); font-family: 'JetBrains Mono', monospace;">{customer_id}</span>
-                        <span style="background: rgba(79, 70, 229, 0.1); color: var(--primary); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px;">{rfm_segment}</span>
-                        <span style="background: rgba(6, 182, 212, 0.1); color: #0284C7; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px;">{cluster_segment}</span>
-                    </div>
-                    <p style="margin: 4px 0 0; font-size: 13px; color: var(--text-secondary);">
-                        📍 {city.title()}, {state.upper()} &nbsp;|&nbsp;
-                        Affinity Category: <strong>{favorite_category}</strong> &nbsp;|&nbsp;
-                        Value Tier: <strong>{clv_band}</strong>
-                    </p>
-                </div>
-            </div>
-            <div>
-                <span style="background: {action_badge_color}; color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                    {action_tier}
-                </span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    html = (
+        f'<div class="customer-hero-card">'
+        f'<div style="display: flex; align-items: center; gap: 16px;">'
+        f'<div style="width: 52px; height: 52px; border-radius: 10px; background: var(--primary); display: flex; align-items: center; justify-content: center; color: white; font-size: 22px; font-weight: 800; box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35);">{initial}</div>'
+        f'<div>'
+        f'<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">'
+        f'<span style="font-size: 18px; font-weight: 800; color: var(--text-primary); font-family: monospace;">{customer_id}</span>'
+        f'<span style="background: rgba(79, 70, 229, 0.1); color: var(--primary); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px;">{rfm_segment}</span>'
+        f'<span style="background: rgba(6, 182, 212, 0.1); color: #0284C7; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px;">{cluster_segment}</span>'
+        f'</div>'
+        f'<p style="margin: 4px 0 0; font-size: 13px; color: var(--text-secondary);">📍 {city.title()}, {state.upper()} &nbsp;|&nbsp; Affinity: <strong>{favorite_category}</strong> &nbsp;|&nbsp; Value Tier: <strong>{clv_band}</strong></p>'
+        f'</div>'
+        f'</div>'
+        f'<div><span style="background: {action_badge_color}; color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700;">{action_tier}</span></div>'
+        f'</div>'
     )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def render_empty_state(
@@ -111,13 +92,11 @@ def render_empty_state(
 ) -> None:
     """Render a clean enterprise empty state with optional reset action."""
     st.markdown(
-        f"""
-        <div class="empty-state">
-            <div class="empty-state-icon">🔍</div>
-            <div class="empty-state-title">{title}</div>
-            <div class="empty-state-desc">{description}</div>
-        </div>
-        """,
+        f'<div class="empty-state">'
+        f'<div class="empty-state-icon">🔍</div>'
+        f'<div class="empty-state-title">{title}</div>'
+        f'<div class="empty-state-desc">{description}</div>'
+        f'</div>',
         unsafe_allow_html=True,
     )
     if show_reset:
@@ -134,11 +113,9 @@ def render_error_state(
 ) -> None:
     """Render a graceful enterprise error card."""
     st.markdown(
-        f"""
-        <div class="error-state">
-            <div class="error-state-title">⚠️ {title}</div>
-            <div class="error-state-desc">{description}</div>
-        </div>
-        """,
+        f'<div class="error-state">'
+        f'<div class="error-state-title">⚠️ {title}</div>'
+        f'<div class="error-state-desc">{description}</div>'
+        f'</div>',
         unsafe_allow_html=True,
     )

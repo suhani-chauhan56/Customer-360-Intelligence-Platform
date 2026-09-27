@@ -1,6 +1,6 @@
-"""Compatibility re-exports for streamlit_app.utils -> canonical utils package."""
+"""CustomerAtlas Enterprise Canonical Utilities Package."""
 
-from utils.formatting import (
+from .formatting import (
     format_number,
     format_currency,
     format_percent,
@@ -8,7 +8,7 @@ from utils.formatting import (
     format_pct,
     format_num,
 )
-from utils.styling import (
+from .styling import (
     load_css,
     style_chart,
     chart,
@@ -22,21 +22,26 @@ from utils.styling import (
     COLOR_SLATE,
     PLOT_CONFIG,
 )
-from utils.validation import (
+from .validation import (
     validate_customer_dataframe,
     validate_customer_id,
     REQUIRED_CUSTOMER_COLUMNS,
 )
-from utils.logging_config import logger, setup_logger
-from utils.exceptions import (
+from .logging_config import logger, setup_logger
+from .exceptions import (
     CustomerAtlasError,
     DataValidationError,
     DataLoadError,
+    ModelError,
     ModelLoadError,
     ModelInferenceError,
     ConfigurationError,
+    AuthenticationError,
+    AuthorizationError,
+    ResourceNotFoundError,
+    TenantIsolationError,
 )
-from utils.helpers import safe_float, safe_int, safe_str, calculate_pareto_cutoff, calculate_data_snapshot_info
+from .helpers import safe_float, safe_int, safe_str, calculate_pareto_cutoff, calculate_data_snapshot_info
 
 __all__ = [
     "format_number",
@@ -65,9 +70,14 @@ __all__ = [
     "CustomerAtlasError",
     "DataValidationError",
     "DataLoadError",
+    "ModelError",
     "ModelLoadError",
     "ModelInferenceError",
     "ConfigurationError",
+    "AuthenticationError",
+    "AuthorizationError",
+    "ResourceNotFoundError",
+    "TenantIsolationError",
     "safe_float",
     "safe_int",
     "safe_str",

@@ -13,9 +13,10 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent
 APP_DIR = ROOT_DIR / "streamlit_app"
 
-for p in [str(ROOT_DIR), str(APP_DIR)]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
+for p in [str(APP_DIR), str(ROOT_DIR)]:
+    if p in sys.path:
+        sys.path.remove(p)
+    sys.path.insert(0, p)
 
 # Execute the primary Streamlit application
 import streamlit_app.app

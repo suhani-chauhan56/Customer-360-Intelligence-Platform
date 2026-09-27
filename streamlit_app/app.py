@@ -32,9 +32,10 @@ import streamlit as st
 # Setup sys.path to resolve internal modules
 APP_DIR = Path(__file__).resolve().parent
 ROOT_DIR = APP_DIR.parent
-for p in [str(ROOT_DIR), str(APP_DIR)]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
+for p in [str(APP_DIR), str(ROOT_DIR)]:
+    if p in sys.path:
+        sys.path.remove(p)
+    sys.path.insert(0, p)
 
 # Component Imports
 from components.cards import (

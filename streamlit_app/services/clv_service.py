@@ -7,7 +7,6 @@ CLV segment/regional breakdowns, and high-value customer analysis.
 from typing import Any, Dict, List, Tuple
 import numpy as np
 import pandas as pd
-from utils.formatting import format_brl, format_pct
 
 
 def compute_clv_overview(df: pd.DataFrame) -> Dict[str, Any]:

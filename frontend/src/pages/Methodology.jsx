@@ -71,7 +71,7 @@ export default function Methodology() {
                 <li><strong>Potential Loyalists (R: 4-5, F: 1-2, M: 3-4):</strong> Recent buyers with healthy initial basket values. Second-purchase cross-sell nurturing.</li>
                 <li><strong>Regular Customers (R: 2-4, F: 1-2, M: 2-3):</strong> Moderate spend baseline customers. Seasonal catalog promotions.</li>
                 <li><strong>At Risk (R: 1-2, F: 2-5, M: 2-5):</strong> Previously active repeat buyers who have lapsed past 180 days. Win-back re-engagement incentives.</li>
-                <li><strong>Lost Customers (R: 1, F: 1-2, M: 1-2):</strong> Longest inactive cohort (>365 days inactive) with lowest engagement.</li>
+                <li><strong>Lost Customers (R: 1, F: 1-2, M: 1-2):</strong> Longest inactive cohort (&gt;365 days inactive) with lowest engagement.</li>
               </ul>
             </div>
           )}

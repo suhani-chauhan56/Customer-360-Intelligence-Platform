@@ -119,7 +119,7 @@ export default function AnalyticsExplorer() {
               className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-medium"
             >
               <option value="All">All Risk Levels</option>
-              <option value="High Risk (>=65%)">High Risk (>=65%)</option>
+              <option value="High Risk (>=65%)">High Risk (&gt;=65%)</option>
               <option value="Medium Risk (35-65%)">Medium Risk (35-65%)</option>
               <option value="Low Risk (<35%)">Low Risk (&lt;35%)</option>
             </select>

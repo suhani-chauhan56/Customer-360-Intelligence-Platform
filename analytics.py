@@ -23,7 +23,7 @@ import math
 import os
 import sys
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -442,7 +442,7 @@ def run_full_analytics_audit(df: Optional[pd.DataFrame] = None) -> Dict[str, Any
 
     return {
         "status": "Success",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "data_validation": validation,
         "executive_kpis": asdict(kpis),
         "segment_count": len(segments),

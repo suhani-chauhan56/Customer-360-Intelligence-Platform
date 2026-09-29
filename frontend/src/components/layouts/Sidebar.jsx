@@ -113,7 +113,7 @@ export default function Sidebar({ filters, onFilterChange, onResetFilters }) {
               className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-md p-1.5 text-slate-700 focus:outline-none focus:border-indigo-500"
             >
               <option value="All">All Risk Levels</option>
-              <option value="High Risk (>=65%)">High Risk (>=65%)</option>
+              <option value="High Risk (>=65%)">High Risk (&gt;=65%)</option>
               <option value="Medium Risk (35-65%)">Medium Risk (35-65%)</option>
               <option value="Low Risk (<35%)">Low Risk (&lt;35%)</option>
             </select>

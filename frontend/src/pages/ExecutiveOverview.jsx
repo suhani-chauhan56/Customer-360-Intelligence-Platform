@@ -202,7 +202,7 @@ export default function ExecutiveOverview() {
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Extended inactivity (>365d) • {formatBrl(audience_composition.cohorts.lost.revenue)} GMV
+                    Extended inactivity (&gt;365d) • {formatBrl(audience_composition.cohorts.lost.revenue)} GMV
                   </p>
                 </div>
               </>

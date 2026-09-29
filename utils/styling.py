@@ -1,13 +1,11 @@
 """Enterprise design system and visualization styling utilities for CustomerAtlas.
 
-Ensures consistent visual language, Plotly chart theming, and centralized
-CSS injection following the B2B SaaS design system.
+Ensures consistent visual language and Plotly chart theming.
 """
 
 from pathlib import Path
 from typing import Optional
 import plotly.graph_objects as go
-import streamlit as st
 
 # ==============================================================================
 # DESIGN SYSTEM PALETTE
@@ -45,36 +43,14 @@ PLOT_CONFIG = {
 }
 
 
-def load_css() -> None:
-    """Read centralized assets/style.css and inject it into the Streamlit session."""
-    # Search for assets/style.css across standard locations
-    candidate_paths = [
-        Path(__file__).resolve().parent.parent / "streamlit_app" / "assets" / "style.css",
-        Path(__file__).resolve().parent / "assets" / "style.css",
-        Path.cwd() / "streamlit_app" / "assets" / "style.css",
-        Path.cwd() / "assets" / "style.css",
-    ]
-    css_content = None
-    for cp in candidate_paths:
-        if cp.exists():
-            with open(cp, "r", encoding="utf-8") as f:
-                css_content = f.read()
-            break
-
-    if css_content:
-        st.markdown(f"<style>{css_content}</style>", unsafe_allow_html=True)
-    else:
-        st.warning("CSS asset not found.")
-
-
 def style_chart(
     figure: go.Figure,
     height: int = 320,
     legend: str = "bottom",
     title: Optional[str] = None,
     dark_mode: bool = False,
-) -> None:
-    """Apply consistent enterprise B2B styling to any Plotly chart.
+) -> go.Figure:
+    """Apply consistent enterprise B2B styling to any Plotly chart and return it.
 
     Parameters:
         figure: The Plotly figure object
@@ -159,12 +135,12 @@ def style_chart(
         tickfont=dict(color=text_color, size=11),
     )
 
-    st.plotly_chart(figure, use_container_width=True, config=PLOT_CONFIG)
+    return figure
 
 
 # Compatibility alias
-def chart(figure: go.Figure, height: int = 320, legend: str = "bottom", dark_mode: bool = False) -> None:
-    style_chart(figure=figure, height=height, legend=legend, dark_mode=dark_mode)
+def chart(figure: go.Figure, height: int = 320, legend: str = "bottom", dark_mode: bool = False) -> go.Figure:
+    return style_chart(figure=figure, height=height, legend=legend, dark_mode=dark_mode)
 
 
 __all__ = [
@@ -183,7 +159,6 @@ __all__ = [
     "COLOR_PAGE_BG",
     "CHART_COLORWAY",
     "PLOT_CONFIG",
-    "load_css",
     "style_chart",
     "chart",
 ]

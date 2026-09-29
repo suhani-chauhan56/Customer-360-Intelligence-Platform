@@ -3,16 +3,17 @@ const auditService = require('../services/auditService');
 
 const askGroundedQuestion = async (req, res, next) => {
   try {
-    const { query, customer_id } = req.body;
+    const { query, question, customer_id } = req.body;
+    const activeQuery = query || question;
 
-    if (!query) {
+    if (!activeQuery) {
       return res.status(400).json({
         success: false,
         message: 'Query is required.',
       });
     }
 
-    const answer = groundedAiService.processGroundedQuery(query, customer_id);
+    const answer = groundedAiService.processGroundedQuery(activeQuery, customer_id);
 
     // Record compliance audit
     await auditService.recordAuditEvent({

@@ -1,35 +1,49 @@
-import { getCustomers } from '../services/dataStore.js';
-import { computeCLVOverview, simulateCLV } from '../services/analyticsService.js';
+const dataService = require('../services/dataService');
+const clvService = require('../services/clvService');
 
-export function getCLVOverview(req, res) {
+const getClvOverview = async (req, res, next) => {
   try {
-    const customers = getCustomers();
-    const clvData = computeCLVOverview(customers);
+    const customers = dataService.getCustomers();
+    const overview = clvService.computeClvOverview(customers);
+    const brackets = clvService.computeClvBins(customers);
+    const highValueCohort = clvService.analyzeHighValueCohort(customers, 0.90);
 
-    return res.status(200).json({
+    res.json({
       success: true,
-      data: clvData,
+      data: {
+        benchmarks: overview,
+        brackets,
+        high_value_cohort: highValueCohort,
+      },
     });
   } catch (error) {
-    console.error('Error in getCLVOverview:', error);
-    return res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
-}
+};
 
-export function handleCLVSimulation(req, res) {
+const simulateClvScenario = async (req, res, next) => {
   try {
-    const {
-      recency_days = 90,
-      frequency = 2,
-      monetary = 250,
-      avg_order_value = 125,
-      number_of_products = 2,
-      customer_age_days = 180,
-    } = req.body;
+    const inputs = {
+      recency_days: parseFloat(req.body.recency_days || 30),
+      frequency: parseFloat(req.body.frequency || 3),
+      monetary: parseFloat(req.body.monetary || 450),
+      avg_order_value: parseFloat(req.body.avg_order_value || 150),
+      number_of_products: parseFloat(req.body.number_of_products || 3),
+      customer_age_days: parseFloat(req.body.customer_age_days || 90),
+    };
 
-    const result = simulateCLV(recency_days, frequency, monetary, avg_order_value, number_of_products, customer_age_days);
-    return res.status(200).json({ success: true, data: result });
+    const simulation = clvService.simulateClv(inputs);
+
+    res.json({
+      success: true,
+      data: simulation,
+    });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
-}
+};
+
+module.exports = {
+  getClvOverview,
+  simulateClvScenario,
+};

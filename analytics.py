@@ -32,13 +32,11 @@ import pandas as pd
 
 # Setup robust project paths
 BASE_DIR = Path(__file__).resolve().parent
-APP_DIR = BASE_DIR / "streamlit_app"
 DATA_DIR = Path(os.getenv("DATA_DIR", str(BASE_DIR / "data" / "processed")))
 MODELS_DIR = Path(os.getenv("MODELS_DIR", str(BASE_DIR / "models")))
 
-for path_dir in [str(BASE_DIR), str(APP_DIR)]:
-    if path_dir not in sys.path:
-        sys.path.insert(0, path_dir)
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 
 # Initialize logger
 logger = logging.getLogger("customeratlas.analytics")

@@ -1,50 +1,35 @@
-import express from 'express';
-import { getOverview } from '../controllers/overviewController.js';
-import { getCustomersList, getCustomerDetails, getCustomerOrders } from '../controllers/customerController.js';
-import { getSegmentsOverview, compareSegments } from '../controllers/segmentController.js';
-import { getChurnOverview, handleChurnSimulation } from '../controllers/churnController.js';
-import { getCLVOverview, handleCLVSimulation } from '../controllers/clvController.js';
-import { getSentimentOverview } from '../controllers/sentimentController.js';
-import { getProductAndRevenueAnalytics } from '../controllers/productController.js';
-import { getRecommendationsOverview } from '../controllers/recommendationController.js';
-import { getDataQualityAudit } from '../controllers/dataQualityController.js';
-import { handleGroundedAIQuery } from '../controllers/aiController.js';
-
+const express = require('express');
 const router = express.Router();
 
-// Executive Overview
-router.get('/dashboard/overview', getOverview);
+const dashboardRoutes = require('./dashboardRoutes');
+const customerRoutes = require('./customerRoutes');
+const rfmRoutes = require('./rfmRoutes');
+const clvRoutes = require('./clvRoutes');
+const churnRoutes = require('./churnRoutes');
+const sentimentRoutes = require('./sentimentRoutes');
+const recommendationRoutes = require('./recommendationRoutes');
+const analyticsRoutes = require('./analyticsRoutes');
+const dataQualityRoutes = require('./dataQualityRoutes');
+const groundedAiRoutes = require('./groundedAiRoutes');
 
-// Customer Directory & 360 Dossier
-router.get('/customers', getCustomersList);
-router.get('/customers/:id', getCustomerDetails);
-router.get('/customers/:id/orders', getCustomerOrders);
+router.use('/dashboard', dashboardRoutes);
+router.use('/customers', customerRoutes);
+router.use('/rfm', rfmRoutes);
+router.use('/clv', clvRoutes);
+router.use('/churn', churnRoutes);
+router.use('/sentiment', sentimentRoutes);
+router.use('/recommendations', recommendationRoutes);
+router.use('/analytics', analyticsRoutes);
+router.use('/data-quality', dataQualityRoutes);
+router.use('/grounded-ai', groundedAiRoutes);
 
-// Segmentation & RFM
-router.get('/segments', getSegmentsOverview);
-router.get('/segments/compare', compareSegments);
+router.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    service: 'CustomerAtlas AI Backend REST API Engine',
+    version: '2.0.0-prod',
+  });
+});
 
-// Churn & Risk Intelligence
-router.get('/churn', getChurnOverview);
-router.post('/churn/simulate', handleChurnSimulation);
-
-// Customer Lifetime Value (CLV)
-router.get('/clv', getCLVOverview);
-router.post('/clv/simulate', handleCLVSimulation);
-
-// Sentiment Intelligence & CSAT
-router.get('/sentiment', getSentimentOverview);
-
-// Revenue & Product Analytics
-router.get('/products', getProductAndRevenueAnalytics);
-
-// Recommendations Engine
-router.get('/recommendations', getRecommendationsOverview);
-
-// Data Quality & MLOps Governance
-router.get('/data-quality', getDataQualityAudit);
-
-// Grounded AI Decision Support
-router.post('/ai/ask', handleGroundedAIQuery);
-
-export default router;
+module.exports = router;

@@ -1,55 +1,51 @@
-import { getCustomers, getFeatureImportance } from '../services/dataStore.js';
-import {
-  computeQuadrantMatrix,
-  prioritizeRetentionQueue,
-  simulateChurn,
-  computeExecutiveKPIs,
-} from '../services/analyticsService.js';
+const dataService = require('../services/dataService');
+const churnService = require('../services/churnService');
 
-export function getChurnOverview(req, res) {
+const getChurnOverview = async (req, res, next) => {
   try {
-    const customers = getCustomers();
-    const { kpis, riskDistribution } = computeExecutiveKPIs(customers);
-    const quadrantMatrix = computeQuadrantMatrix(customers);
-    const featureImportance = getFeatureImportance();
-    const retentionQueue = prioritizeRetentionQueue(customers, 50);
+    const customers = dataService.getCustomers();
+    const riskOverview = churnService.computeRiskOverview(customers);
+    const quadrantMatrix = churnService.computeQuadrantMatrix(customers);
+    const retentionQueue = churnService.getPrioritizedRetentionQueue(customers, 200);
+    const featureImportance = dataService.getFeatureImportance();
 
-    return res.status(200).json({
+    res.json({
       success: true,
       data: {
-        summary: {
-          totalCustomers: kpis.totalCustomers,
-          atRiskCount: kpis.atRiskCustomersCount,
-          atRiskRevenue: kpis.atRiskRevenueExposure,
-          atRiskPct: Math.round((kpis.atRiskCustomersCount / Math.max(1, kpis.totalCustomers)) * 1000) / 10,
-          avgChurnProb: Math.round(customers.reduce((a, c) => a + Number(c.churn_probability || 0), 0) / Math.max(1, customers.length) * 1000) / 10,
-        },
-        riskDistribution,
-        quadrantMatrix,
-        featureImportance,
-        retentionQueue,
+        risk_overview: riskOverview,
+        quadrant_matrix: quadrantMatrix,
+        retention_queue: retentionQueue,
+        feature_importance: featureImportance,
       },
     });
   } catch (error) {
-    console.error('Error in getChurnOverview:', error);
-    return res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
-}
+};
 
-export function handleChurnSimulation(req, res) {
+const simulateChurnScenario = async (req, res, next) => {
   try {
-    const {
-      recency_days = 120,
-      frequency = 1,
-      monetary = 150,
-      avg_order_value = 150,
-      number_of_products = 1,
-      customer_age_days = 200,
-    } = req.body;
+    const inputs = {
+      recency_days: parseFloat(req.body.recency_days || 90),
+      frequency: parseFloat(req.body.frequency || 2),
+      monetary: parseFloat(req.body.monetary || 280),
+      avg_order_value: parseFloat(req.body.avg_order_value || 140),
+      number_of_products: parseFloat(req.body.number_of_products || 2),
+      customer_age_days: parseFloat(req.body.customer_age_days || 45),
+    };
 
-    const result = simulateChurn(recency_days, frequency, monetary, avg_order_value, number_of_products, customer_age_days);
-    return res.status(200).json({ success: true, data: result });
+    const simulation = churnService.simulateChurn(inputs);
+
+    res.json({
+      success: true,
+      data: simulation,
+    });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
-}
+};
+
+module.exports = {
+  getChurnOverview,
+  simulateChurnScenario,
+};

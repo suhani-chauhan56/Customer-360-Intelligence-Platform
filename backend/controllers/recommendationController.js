@@ -1,70 +1,74 @@
-import { getCustomers, getRecommendations } from '../services/dataStore.js';
-import {
-  RECOMMENDATION_RULES,
-  generateCustomerRecommendation,
-} from '../services/analyticsService.js';
+const dataService = require('../services/dataService');
+const recommendationService = require('../services/recommendationService');
 
-export function getRecommendationsOverview(req, res) {
+const getRecommendationsOverview = async (req, res, next) => {
   try {
-    const customers = getCustomers();
-    const { actionType = 'All', priority = 'All', limit = 50 } = req.query;
+    const customers = dataService.getCustomers();
+    const portfolio = recommendationService.computeRecommendationPortfolio(customers, 2500);
+    const summary = recommendationService.computeRecommendationSummary(portfolio);
+    const rules = recommendationService.RECOMMENDATION_RULES;
 
-    // Generate recommendations for top sample
-    const sample = customers.slice(0, 1000);
-    const recs = sample.map(c => generateCustomerRecommendation(c));
+    const actionTypeFilter = req.query.action_type || 'All';
+    const priorityFilter = req.query.priority || 'All';
+    const segmentFilter = req.query.segment || 'All';
 
-    // Summary of portfolio recommendations
-    const summaryMap = {};
-    for (const r of recs) {
-      const key = r.action_type;
-      if (!summaryMap[key]) {
-        summaryMap[key] = {
-          action_type: r.action_type,
-          priority: r.priority,
-          badge_color: r.badge_color,
-          channel: r.channel,
-          count: 0,
-          total_spend: 0,
-          avg_clv: 0,
-          avg_churn: 0,
-        };
-      }
-      summaryMap[key].count += 1;
-      summaryMap[key].total_spend += Number(r.total_spend || 0);
-      summaryMap[key].avg_clv += Number(r.predicted_clv || 0);
-      summaryMap[key].avg_churn += Number(r.churn_probability || 0);
+    let filteredQueue = portfolio;
+    if (actionTypeFilter !== 'All') {
+      filteredQueue = filteredQueue.filter((r) => r.action_type === actionTypeFilter);
+    }
+    if (priorityFilter !== 'All') {
+      filteredQueue = filteredQueue.filter((r) => r.priority === priorityFilter);
+    }
+    if (segmentFilter !== 'All') {
+      filteredQueue = filteredQueue.filter((r) => r.rfm_segment === segmentFilter);
     }
 
-    const portfolioSummary = Object.values(summaryMap).map(s => ({
-      ...s,
-      total_spend: Math.round(s.total_spend),
-      avg_clv: Math.round((s.avg_clv / Math.max(1, s.count)) * 100) / 100,
-      avg_churn: Math.round((s.avg_churn / Math.max(1, s.count)) * 1000) / 10,
-    })).sort((a, b) => b.count - a.count);
+    const urgentCount = portfolio.filter((r) => r.priority === 'Urgent').length;
+    const highCount = portfolio.filter((r) => r.priority === 'High').length;
+    let totalSpendCovered = 0;
+    portfolio.forEach((r) => (totalSpendCovered += r.total_spend));
 
-    // Filtered queue
-    let queue = recs;
-    if (actionType && actionType !== 'All') {
-      queue = queue.filter(r => r.action_type === actionType);
-    }
-    if (priority && priority !== 'All') {
-      queue = queue.filter(r => r.priority === priority);
-    }
+    const topAction = summary.length > 0 ? summary[0].action_type : 'Standard Lifecycle Nurture';
 
-    // Next-Best-Category cross-sell items
-    const rawRecs = getRecommendations().slice(0, 100);
+    const sampleCategoryCatalog = dataService.getAllRecommendations().slice(0, 100);
 
-    return res.status(200).json({
+    res.json({
       success: true,
       data: {
-        portfolioSummary,
-        rulesMatrix: RECOMMENDATION_RULES,
-        actionQueue: queue.slice(0, parseInt(limit, 10) || 50),
-        nextBestCategories: rawRecs,
+        kpis: {
+          actionable_profiles: portfolio.length,
+          urgent_count: urgentCount,
+          high_count: highCount,
+          top_action: topAction,
+          covered_revenue: parseFloat(totalSpendCovered.toFixed(2)),
+        },
+        summary,
+        rules,
+        queue: filteredQueue.slice(0, 200),
+        total_queue_count: filteredQueue.length,
+        category_catalog_sample: sampleCategoryCatalog,
       },
     });
   } catch (error) {
-    console.error('Error in getRecommendationsOverview:', error);
-    return res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
-}
+};
+
+const getCustomerNextBestCategory = async (req, res, next) => {
+  try {
+    const { customerId } = req.params;
+    const recs = dataService.getRecommendationsForCustomer(customerId);
+
+    res.json({
+      success: true,
+      data: recs,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  getRecommendationsOverview,
+  getCustomerNextBestCategory,
+};

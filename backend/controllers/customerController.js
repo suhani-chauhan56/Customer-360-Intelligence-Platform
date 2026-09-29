@@ -1,181 +1,153 @@
-import { getCustomers, getCustomerById, getOrdersByCustomerId, getRecommendationsByCustomerId } from '../services/dataStore.js';
-import {
-  calculateHealthScore,
-  deriveLifecycleStages,
-  diagnoseCustomerRisk,
-  generateCustomerRecommendation,
-} from '../services/analyticsService.js';
+const dataService = require('../services/dataService');
+const customerService = require('../services/customerService');
+const recommendationService = require('../services/recommendationService');
 
-export function getCustomersList(req, res) {
+const getCustomersList = async (req, res, next) => {
   try {
-    const {
-      search = '',
-      segment = 'All',
-      risk = 'All',
-      state = 'All',
-      clvBand = 'All',
-      recency = 'All',
-      page = 1,
-      limit = 50,
-      sortBy = 'total_spend',
-      sortOrder = 'desc',
-    } = req.query;
-
-    let customers = getCustomers();
-
-    // Search filter (customer_id, city, state)
-    if (search && search.trim()) {
-      const q = search.trim().toLowerCase();
-      customers = customers.filter(c =>
-        (c.customer_id && String(c.customer_id).toLowerCase().includes(q)) ||
-        (c.city && String(c.city).toLowerCase().includes(q)) ||
-        (c.state && String(c.state).toLowerCase().includes(q))
-      );
-    }
-
-    // Segment filter
-    if (segment && segment !== 'All') {
-      customers = customers.filter(c => c.rfm_segment === segment);
-    }
-
-    // Risk level filter
-    if (risk && risk !== 'All') {
-      if (risk.includes('High')) {
-        customers = customers.filter(c => Number(c.churn_probability) >= 0.65);
-      } else if (risk.includes('Medium')) {
-        customers = customers.filter(c => Number(c.churn_probability) >= 0.35 && Number(c.churn_probability) < 0.65);
-      } else if (risk.includes('Low')) {
-        customers = customers.filter(c => Number(c.churn_probability) < 0.35);
-      }
-    }
-
-    // State filter
-    if (state && state !== 'All') {
-      customers = customers.filter(c => (c.state || '').toUpperCase() === state.toUpperCase());
-    }
-
-    // CLV Band filter
-    if (clvBand && clvBand !== 'All') {
-      customers = customers.filter(c => c.clv_band === clvBand);
-    }
-
-    // Recency filter
-    if (recency && recency !== 'All') {
-      if (recency.includes('<90') || recency.includes('Recent')) {
-        customers = customers.filter(c => Number(c.recency_days) < 90);
-      } else if (recency.includes('90-180') || recency.includes('Active')) {
-        customers = customers.filter(c => Number(c.recency_days) >= 90 && Number(c.recency_days) <= 180);
-      } else if (recency.includes('181-365') || recency.includes('Lapsed')) {
-        customers = customers.filter(c => Number(c.recency_days) > 180 && Number(c.recency_days) <= 365);
-      } else if (recency.includes('>365') || recency.includes('Inactive')) {
-        customers = customers.filter(c => Number(c.recency_days) > 365);
-      }
-    }
-
-    const totalMatching = customers.length;
-
-    // Sorting
-    const sorted = [...customers].sort((a, b) => {
-      let valA = a[sortBy];
-      let valB = b[sortBy];
-
-      if (typeof valA === 'string') valA = valA.toLowerCase();
-      if (typeof valB === 'string') valB = valB.toLowerCase();
-
-      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
-      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    // Pagination
-    const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
-    const startIndex = (pageNum - 1) * limitNum;
-    const paginated = sorted.slice(startIndex, startIndex + limitNum);
-
-    return res.status(200).json({
-      success: true,
-      pagination: {
-        total: totalMatching,
-        page: pageNum,
-        limit: limitNum,
-        totalPages: Math.ceil(totalMatching / limitNum),
-      },
-      data: paginated,
-    });
-  } catch (error) {
-    console.error('Error in getCustomersList:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve customers',
-      error: error.message,
-    });
-  }
-}
-
-export function getCustomerDetails(req, res) {
-  try {
-    const { id } = req.params;
-    if (!id) {
-      return res.status(400).json({ success: false, message: 'Customer ID is required' });
-    }
-
-    const profile = getCustomerById(id);
-    if (!profile) {
-      return res.status(404).json({ success: false, message: `Customer profile not found for ID: ${id}` });
-    }
-
-    const health = calculateHealthScore(profile);
-    const lifecycle = deriveLifecycleStages(profile);
-    const riskDiagnostics = diagnoseCustomerRisk(profile);
-    const nextBestAction = generateCustomerRecommendation(profile);
-    const orders = getOrdersByCustomerId(id);
-    const categoryRecommendations = getRecommendationsByCustomerId(id);
-
-    // RFM explanation
-    const rScore = Number(profile.r_score) || 1;
-    const fScore = Number(profile.f_score) || 1;
-    const mScore = Number(profile.m_score) || 1;
-
-    const rfmExplanation = {
-      segment: profile.rfm_segment || 'Regular Customers',
-      code: `R:${rScore} | F:${fScore} | M:${mScore}`,
-      factors: [
-        `Recency Score ${rScore}/5 (${profile.recency_days} days inactive)`,
-        `Frequency Score ${fScore}/5 (${profile.total_orders} orders placed)`,
-        `Monetary Score ${mScore}/5 (R$ ${Number(profile.total_spend || 0).toFixed(2)} lifetime spend)`,
-      ],
+    const filters = {
+      segment: req.query.segment || 'All',
+      risk_level: req.query.risk_level || 'All',
+      state: req.query.state || 'All',
+      clv_band: req.query.clv_band || 'All',
+      recency_filter: req.query.recency_filter || 'All',
+      search_query: req.query.search_query || '',
     };
 
-    return res.status(200).json({
+    const preset = req.query.preset;
+    let list = dataService.getCustomers(filters);
+
+    if (preset === 'Champions & VIPs') {
+      list = list.filter((c) => c.rfm_segment === 'Champions');
+    } else if (preset === 'At Risk High Spenders') {
+      list = list.filter((c) => c.churn_probability >= 0.65 && c.total_spend >= 200);
+    } else if (preset === 'Recent Active Buyers') {
+      list = list.filter((c) => c.recency_days <= 60);
+    } else if (preset === 'Multi-Order Repeat Buyers') {
+      list = list.filter((c) => c.total_orders > 1);
+    }
+
+    const page = parseInt(req.query.page || 1, 10);
+    const limit = parseInt(req.query.limit || 25, 10);
+    const sortBy = req.query.sort_by || 'total_spend';
+    const sortOrder = req.query.sort_order === 'asc' ? 1 : -1;
+
+    const sorted = [...list].sort((a, b) => {
+      const aVal = a[sortBy] !== undefined ? a[sortBy] : 0;
+      const bVal = b[sortBy] !== undefined ? b[sortBy] : 0;
+      return (aVal > bVal ? 1 : aVal < bVal ? -1 : 0) * sortOrder;
+    });
+
+    const startIndex = (page - 1) * limit;
+    const paginated = sorted.slice(startIndex, startIndex + limit);
+
+    res.json({
+      success: true,
+      data: paginated,
+      pagination: {
+        total: list.length,
+        page,
+        limit,
+        total_pages: Math.ceil(list.length / limit),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getCustomerDetails = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const profile = dataService.getCustomerById(id);
+
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: `Customer record with ID '${id}' was not found.`,
+      });
+    }
+
+    const health = customerService.computeCustomerHealth(profile);
+    const lifecycle = customerService.deriveLifecycleStages(profile);
+    const riskDiagnostics = customerService.diagnoseCustomerRiskFactors(profile);
+    const rfmExplanation = customerService.explainRfmSegment(profile);
+    const recommendation = recommendationService.generateCustomerRecommendation(profile);
+
+    const orders = dataService.getOrdersForCustomer(id);
+    const orderIds = orders.map((o) => o.order_id);
+    const payments = dataService.getPaymentsForOrders(orderIds);
+    const reviews = dataService.getReviewsForOrders(orderIds);
+    const categoryRecs = dataService.getRecommendationsForCustomer(id);
+
+    res.json({
       success: true,
       data: {
         profile,
         health,
         lifecycle,
-        riskDiagnostics,
-        nextBestAction,
-        rfmExplanation,
+        risk_diagnostics: riskDiagnostics,
+        rfm_explanation: rfmExplanation,
+        recommendation,
         orders,
-        categoryRecommendations,
+        payments,
+        reviews,
+        category_recommendations: categoryRecs,
       },
     });
   } catch (error) {
-    console.error('Error in getCustomerDetails:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve customer dossier',
-      error: error.message,
-    });
+    next(error);
   }
-}
+};
 
-export function getCustomerOrders(req, res) {
+const getCustomerPdfDossier = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const orders = getOrdersByCustomerId(id);
-    return res.status(200).json({ success: true, data: orders });
+    const profile = dataService.getCustomerById(id);
+
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: `Customer record with ID '${id}' was not found.`,
+      });
+    }
+
+    const health = customerService.computeCustomerHealth(profile);
+    const riskDiagnostics = customerService.diagnoseCustomerRiskFactors(profile);
+    const recommendation = recommendationService.generateCustomerRecommendation(profile);
+
+    // Return structured dossier metadata for immediate client download / rendering
+    res.json({
+      success: true,
+      data: {
+        dossier_title: 'CustomerAtlas — Unified Customer 360 Dossier',
+        generated_at: new Date().toISOString(),
+        customer_id: profile.customer_id,
+        summary_attributes: {
+          'Customer ID': profile.customer_id,
+          'Location': `${profile.city}, ${profile.state}`,
+          'RFM Segment': profile.rfm_segment,
+          'Behavior Cluster': profile.cluster_segment,
+          'Favorite Category': profile.favorite_category,
+          'Total Lifetime Spend': `R$ ${profile.total_spend.toFixed(2)}`,
+          'Total Orders Placed': `${profile.total_orders}`,
+          'Average Order Value': `R$ ${profile.avg_order_value.toFixed(2)}`,
+          'Recency (Days Inactive)': `${Math.round(profile.recency_days)} days`,
+          '12-Month CLV Proxy': `R$ ${profile.predicted_clv.toFixed(2)}`,
+          'Churn Propensity': `${(profile.churn_probability * 100).toFixed(1)}%`,
+          'Health Score': `${health.total_score} / 100 (${health.health_tier})`,
+          'Risk Level': riskDiagnostics.risk_level,
+          'Recommended Action': recommendation.action_type,
+          'Action Strategy Detail': recommendation.description,
+        },
+      },
+    });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
-}
+};
+
+module.exports = {
+  getCustomersList,
+  getCustomerDetails,
+  getCustomerPdfDossier,
+};

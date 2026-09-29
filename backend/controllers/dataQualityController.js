@@ -1,56 +1,68 @@
-import { getCustomers } from '../services/dataStore.js';
-import { computePSIDrift } from '../services/analyticsService.js';
+const dataService = require('../services/dataService');
+const dataQualityService = require('../services/dataQualityService');
+const driftService = require('../services/driftService');
+const auditService = require('../services/auditService');
 
-export function getDataQualityAudit(req, res) {
+const getDataQualityOverview = async (req, res, next) => {
   try {
-    const customers = getCustomers();
-    const totalRecords = customers.length;
+    const customers = dataService.getCustomers();
+    const qualityAudit = dataQualityService.runDataQualityAudit(customers);
+    const fieldCompleteness = dataQualityService.getFieldCompletenessStats(customers);
+    const dataLineage = dataQualityService.getDataLineageSummary();
+    const modelRegistry = dataQualityService.getModelRegistryStatus();
 
-    const nullIds = customers.filter(c => !c.customer_id).length;
-    const negSpend = customers.filter(c => Number(c.total_spend) < 0).length;
-    const invalidChurn = customers.filter(c => Number(c.churn_probability) < 0 || Number(c.churn_probability) > 1).length;
-    const invalidOrders = customers.filter(c => Number(c.total_orders) < 1).length;
+    // Drift audit between baseline (>180d inactive) vs current (<=180d active)
+    const baseline = customers.filter((c) => c.recency_days > 180);
+    const current = customers.filter((c) => c.recency_days <= 180);
+    const driftReport = driftService.runFeatureDriftAudit(baseline, current);
 
-    const checks = [
-      { test: 'Required Schema Contract', status: 'Passed 🟢', detail: '44/44 required columns verified' },
-      { test: 'Customer ID Uniqueness', status: 'Passed 🟢', detail: `${totalRecords.toLocaleString()} unique canonical records (0 duplicates)` },
-      { test: 'Customer ID Completeness', status: nullIds === 0 ? 'Passed 🟢' : 'Failed 🔴', detail: `${nullIds} missing/null ID records` },
-      { test: 'Non-Negative Revenue Spend', status: negSpend === 0 ? 'Passed 🟢' : 'Failed 🔴', detail: `${negSpend} negative spend anomalies` },
-      { test: 'Calibrated Churn Probabilities [0,1]', status: invalidChurn === 0 ? 'Passed 🟢' : 'Failed 🔴', detail: `${invalidChurn} out-of-range probabilities` },
-      { test: 'Order Count Integrity (>=1)', status: invalidOrders === 0 ? 'Passed 🟢' : 'Failed 🔴', detail: `${invalidOrders} invalid order counts` },
-    ];
+    const recentAuditLogs = await auditService.getRecentAuditEvents(30);
 
-    const modelRegistry = [
-      { name: 'XGBoost Churn Classifier', artifact: 'churn_model.pkl', version: '3.0.0', algorithm: 'Calibrated Gradient Boosted Trees', status: 'Ready 🟢', roc_auc: '0.666', accuracy: '0.642' },
-      { name: '12-Month CLV Regressor', artifact: 'clv_model.pkl', version: '2.1.0', algorithm: 'Supervised Ridge / XGBoost Regressor', status: 'Ready 🟢', r2: '0.918', mae: 'R$ 38.15' },
-      { name: 'K-Means Behavioral Cluster', artifact: 'segment_model.pkl', version: '1.4.0', algorithm: 'K-Means (k=5) + Standard Scaler', status: 'Ready 🟢', silhouette: '0.428', clusters: '5' },
-      { name: 'NLP Review Sentiment Classifier', artifact: 'sentiment_model.pkl', version: '1.2.0', algorithm: 'TF-IDF + Logistic / Keyword CSAT', status: 'Ready 🟢', f1_score: '0.862', accuracy: '0.854' },
-    ];
-
-    const driftAudit = computePSIDrift();
-
-    const auditStream = [
-      { timestamp: new Date(Date.now() - 5 * 60000).toISOString(), event: 'Data Contract Validation Passed', user: 'SYSTEM_AUDITOR', status: 'SUCCESS' },
-      { timestamp: new Date(Date.now() - 25 * 60000).toISOString(), event: 'Feature Store Checkpoint (94,983 profiles)', user: 'ETL_PIPELINE', status: 'SUCCESS' },
-      { timestamp: new Date(Date.now() - 60 * 60000).toISOString(), event: 'Model Registry Verification (4/4 Ready)', user: 'MLOPS_GOVERNANCE', status: 'SUCCESS' },
-      { timestamp: new Date(Date.now() - 120 * 60000).toISOString(), event: 'Population Stability Index (PSI) Audit Completed', user: 'DRIFT_MONITOR', status: 'SUCCESS' },
-    ];
-
-    return res.status(200).json({
+    res.json({
       success: true,
       data: {
-        completenessScore: 100.0,
-        totalRecords,
-        totalColumns: 44,
-        isHealthy: true,
-        checks,
-        modelRegistry,
-        driftAudit,
-        auditStream,
+        quality_kpis: {
+          data_quality_score: qualityAudit.quality_score_pct,
+          is_healthy: qualityAudit.is_healthy,
+          canonical_profiles: customers.length,
+          total_attributes: qualityAudit.total_columns,
+          models_ready: `${modelRegistry.filter((m) => m.Status.includes('Ready')).length} / ${modelRegistry.length}`,
+        },
+        integrity_checks: qualityAudit.checks,
+        field_completeness: fieldCompleteness,
+        data_lineage: dataLineage,
+        drift_monitoring: driftReport,
+        model_registry: modelRegistry,
+        compliance_audit_logs: recentAuditLogs,
       },
     });
   } catch (error) {
-    console.error('Error in getDataQualityAudit:', error);
-    return res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
-}
+};
+
+const recordAudit = async (req, res, next) => {
+  try {
+    const { action, resource_type, resource_id, details, user_id } = req.body;
+    const event = await auditService.recordAuditEvent({
+      action: action || 'client_action',
+      resource_type: resource_type || 'user_interaction',
+      resource_id,
+      user_id: user_id || 'usr_analyst',
+      details,
+      ip_address: req.ip,
+    });
+
+    res.json({
+      success: true,
+      data: event,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  getDataQualityOverview,
+  recordAudit,
+};

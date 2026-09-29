@@ -77,7 +77,7 @@ The dimensional warehouse layer structures customer activity into fact and dimen
 
 ## 4. Data Quality Contracts & Validation Engine
 
-CustomerAtlas enforces data quality checks at ingestion and runtime via [`DataQualityService`](file:///C:/Users/HP/Desktop/Customer%20360%20Intelligence/streamlit_app/services/data_quality_service.py):
+CustomerAtlas enforces data quality checks at ingestion and runtime via [`DataQualityService`](file:///C:/Users/HP/Desktop/Customer%20360%20Intelligence/services/data_quality_service.py):
 
 ```python
 # Core Quality Contract Invariants

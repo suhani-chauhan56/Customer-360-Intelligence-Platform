@@ -10,7 +10,7 @@ flowchart LR
     B --> C[Offline Model Training\nXGBoost / Scikit-Learn]
     C --> D[Held-Out Evaluation\n& Contract Validation]
     D --> E[Model Registry\nArtifacts & Metadata JSON]
-    E --> F[Inference Engine\nStreamlit & FastAPI]
+    E --> F[Inference Engine\nBackend REST & Services]
     F --> G[Drift Monitoring\nPSI & Distribution Audits]
     G -.->|Human Review Trigger| C
 ```

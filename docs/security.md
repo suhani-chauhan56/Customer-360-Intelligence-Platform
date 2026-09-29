@@ -32,5 +32,5 @@
 ## 3. Secret Management & File Upload Security
 
 - **No Hardcoded Secrets:** Configuration keys, database URLs, and API tokens are resolved exclusively from environment variables.
-- **Pre-commit Gate:** `.gitignore` blocks `.env`, `.streamlit/secrets.toml`, and credential JSON files.
+- **Pre-commit Gate:** `.gitignore` blocks `.env` and credential JSON files.
 - **Serialization Safety:** ML models are loaded strictly from the verified local `models/` directory; unverified remote pickle files are disallowed.

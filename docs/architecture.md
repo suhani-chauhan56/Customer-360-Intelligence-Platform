@@ -2,88 +2,93 @@
 
 ## 1. System Overview
 
-CustomerAtlas is architected as an **enterprise-ready modular monolith** designed for high cohesion, low coupling, and unified business domain logic. It bridges interactive business decision support (Streamlit presentation layer) with headless enterprise integration (FastAPI REST API layer) sharing a unified Application Services and Data Access Layer.
+CustomerAtlas is architected as an **enterprise-ready production platform** migrated to a high-performance **MERN web architecture** (React 18, Vite, Tailwind CSS, Recharts, Node.js, Express, MongoDB) designed for full Vercel serverless and cloud deployment with **zero dependency on Streamlit**.
 
 ```mermaid
 flowchart TD
-    subgraph Clients["Clients & Presentation"]
-        UI[Streamlit Web UI\nInteractive Workspaces]
-        API_Client[External Consumers / CRM\nHeadless API Clients]
+    subgraph Frontend_Vercel ["Frontend Layer (Vercel Serverless / SPA)"]
+        SPA["React 18 + Vite SPA\n(Tailwind CSS, Lucide Icons, Recharts)"]
+        ROUTER["React Router v6\n(11 Enterprise Workspaces)"]
+        API_CLIENT["Axios REST Client\n(Environment-driven API Base URL)"]
+        SPA --> ROUTER
+        ROUTER --> API_CLIENT
     end
 
-    subgraph APILayer["REST API Layer (FastAPI)"]
-        Routes[API Routers: /customers, /segments, /analytics, /ml, /system]
-        AuthMiddleware[Security, RBAC & Tenant Middleware]
+    subgraph Backend_Node ["Backend API Layer (Node.js + Express / Vercel Serverless)"]
+        SRV["Express REST API Engine\n(CORS, Helmet, Rate Limiting, Compression)"]
+        AUTH_ROUTER["Master Router (/api/...)"]
+        
+        subgraph Controllers ["Controllers & Middleware"]
+            DASH_C["Dashboard Controller"]
+            CUST_C["Customer Controller"]
+            RFM_C["RFM Controller"]
+            CLV_C["CLV Controller"]
+            CHURN_C["Churn Controller"]
+            SENT_C["Sentiment Controller"]
+            REC_C["Recommendation Controller"]
+            EXP_C["Analytics Explorer Controller"]
+            DQ_C["Data Quality Controller"]
+            AI_C["Grounded AI Controller"]
+        end
+
+        subgraph Domain_Services ["Domain Calculation Services"]
+            DATA_SVC["Data Service\n(In-Memory CSV Cache / Indexed Map)"]
+            CUST_SVC["Customer 360 & Health Scoring Engine"]
+            RFM_SVC["RFM Intelligence & Segmentation Engine"]
+            CLV_SVC["12-Month Predictive CLV Engine"]
+            CHURN_SVC["Churn Propensity & Revenue Exposure Engine"]
+            SENT_SVC["CSAT Sentiment & Theme Extraction Engine"]
+            REC_SVC["Decision Rule Recommendation Engine"]
+            DRIFT_SVC["PSI Population Stability Drift Engine"]
+            AI_SVC["Grounded AI Deterministic Semantic Router"]
+            AUDIT_SVC["Enterprise Compliance Audit Logger"]
+        end
+
+        SRV --> AUTH_ROUTER
+        AUTH_ROUTER --> Controllers
+        Controllers --> Domain_Services
     end
 
-    subgraph ServiceLayer["Application Service Layer"]
-        CS[Customer Service]
-        RS[RFM & Segmentation Service]
-        CLVS[CLV Intelligence Service]
-        RKS[Risk & Prioritization Service]
-        IS[Insight Service]
-        REC[Recommendation Service]
-        HS[Health Score & Lifecycle Service]
-        DS[Drift Monitoring Service]
-        MS[ML Model Service]
-        AS[Audit Service]
+    subgraph Data_Storage ["Data & Feature Persistence"]
+        MONGO[("MongoDB Database\n(Customer Collection with Compound Indexes)")]
+        CSV_STORE[("Canonical Feature Store\n(customer_360_features.csv — 94,983 Profiles)")]
+        RAW_ORDERS[("Transaction Ledgers\n(fact_orders.csv, fact_payments.csv)")]
+        RAW_REVIEWS[("Voice of Customer\n(olist_order_reviews_dataset.csv)")]
     end
 
-    subgraph DomainLayer["Domain & Config"]
-        Rules[Business Rules & Retention Playbooks]
-        Thresholds[Operational Thresholds]
-        Settings[Dynamic Environment Settings]
-    end
-
-    subgraph DataAccessLayer["Data Access & Storage"]
-        Repo[Repository Pattern: CustomerRepo, TxRepo, AnalyticsRepo, AuditRepo]
-        DB[(Relational DB: SQLite / PostgreSQL)]
-        FS[(Feature Store & Warehouse Artifacts CSV)]
-        Models[(Serialized Model Artifacts .pkl)]
-    end
-
-    UI --> ServiceLayer
-    API_Client --> APILayer
-    APILayer --> AuthMiddleware
-    AuthMiddleware --> ServiceLayer
-    ServiceLayer --> DomainLayer
-    ServiceLayer --> Repo
-    ServiceLayer --> FS
-    ServiceLayer --> Models
-    Repo --> DB
+    API_CLIENT -->|HTTP / JSON| SRV
+    Domain_Services --> MONGO
+    Domain_Services --> CSV_STORE
+    Domain_Services --> RAW_ORDERS
+    Domain_Services --> RAW_REVIEWS
 ```
 
 ---
 
 ## 2. Layered Architecture Principles
 
-### 1. Presentation Layer (`streamlit_app/`)
-- Streamlit application serving 8 analytical workspaces:
+### 1. Presentation Layer (`frontend/`)
+- React 18 SPA serving 11 analytical workspaces:
   - *Executive Overview*
   - *Customer 360*
-  - *Customer Explorer*
-  - *Segmentation*
-  - *RFM Analysis*
-  - *Customer Lifetime Value*
-  - *Churn & Risk*
-  - *Customer Insights*
-- Presentation components strictly render formatted data without embedding raw database queries or direct ML model weight manipulations.
+  - *Customer Segmentation*
+  - *Customer Value (CLV)*
+  - *Churn Intelligence*
+  - *Sentiment Intelligence*
+  - *Recommendations*
+  - *Analytics Explorer*
+  - *Data Quality & Governance*
+  - *Methodology & Contracts*
+  - *Ask CustomerAtlas (Grounded AI)*
 
-### 2. API Layer (`api/`)
-- High-performance asynchronous FastAPI micro-framework exposing OpenAPI 3.1 endpoints under `/api/v1`.
-- Standardized Pydantic schemas enforce type safety, input validation, and prevent leaking internal implementation details.
-- Standard HTTP status codes, structured JSON error envelopes, and request timing headers (`X-Response-Time-Ms`).
+### 2. Backend REST API Layer (`backend/` & `api/`)
+- Express REST API engine deployed on Node.js / Vercel Serverless Function bridge (`api/index.js`).
+- Clean separation between routing, validation controllers, and domain services.
 
-### 3. Application Services Layer (`streamlit_app/services/`)
-- Reusable, deterministic domain services that execute analytics, calculations, lifecycle state progressions, and model inference.
-- Shared seamlessly across both the Streamlit UI and FastAPI endpoints, eliminating duplicated business logic.
+### 3. Application Services & Data Science Layer (`services/`, `analytics.py`, `src/`)
+- Reusable, deterministic domain services that execute analytics, calculations, lifecycle state progressions, and ML model inference.
+- Preserved Python Analytics Engine and standalone CLI pipeline.
 
-### 4. Data Access Layer (`database/`)
-- Standardized Repository Pattern (`BaseRepository`, `CustomerRepository`, `TransactionRepository`, `AnalyticsRepository`, `AuditRepository`).
-- Dual-mode operation: Queries the normalized relational schema via SQLAlchemy ORM or consumes the precomputed feature store directly with caching.
-
-### 5. Infrastructure & Security (`security/`, `utils/`, `config/`)
-- Centralized configuration with environment variable overrides (`APP_ENV`, `DATA_DIR`, `MODELS_DIR`, `DATABASE_URL`).
-- Structured logging with timestamps and log levels.
-- Role-Based Access Control (`Role`, `Permission`, `ROLE_PERMISSIONS`).
-- Multi-tenant organization isolation context (`set_current_tenant_id`, `get_current_tenant_id`).
+### 4. Data Access Layer (`data/`, `database/`, MongoDB)
+- Canonical CSV feature store (`customer_360_features.csv` — 94,983 profiles).
+- MongoDB collection support with automatic fallback to high-performance in-memory cache.

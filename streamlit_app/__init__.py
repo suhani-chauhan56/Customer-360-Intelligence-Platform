@@ -1,1 +1,0 @@
-"""CustomerAtlas Streamlit application package."""

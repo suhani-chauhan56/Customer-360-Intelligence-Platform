@@ -66,3 +66,4 @@ tmp/
 temp/
 
 data/raw/ecommerce_events_2019_dec.csv
+node_modules

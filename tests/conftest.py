@@ -5,14 +5,12 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-# Ensure root and streamlit_app are in Python path for test discovery
+# Ensure root directory is in Python path for test discovery
 TEST_DIR = Path(__file__).resolve().parent
 ROOT_DIR = TEST_DIR.parent
-APP_DIR = ROOT_DIR / "streamlit_app"
 
-for p in [str(ROOT_DIR), str(APP_DIR)]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 
 @pytest.fixture

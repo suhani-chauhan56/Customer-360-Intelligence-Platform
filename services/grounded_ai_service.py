@@ -46,6 +46,20 @@ class GroundedAnswer:
         "propensities, not guaranteed causal outcomes."
     )
 
+    def __post_init__(self):
+        if isinstance(self.metrics, dict):
+            clean = {}
+            for k, v in self.metrics.items():
+                if isinstance(v, (np.integer, int)):
+                    clean[k] = int(v)
+                elif isinstance(v, (np.floating, float)):
+                    clean[k] = float(v)
+                elif isinstance(v, np.ndarray):
+                    clean[k] = v.tolist()
+                else:
+                    clean[k] = v
+            self.metrics = clean
+
 
 class GroundedAIService:
     """Safe, grounded conversational analytics engine."""

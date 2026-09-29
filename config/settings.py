@@ -11,8 +11,8 @@ from typing import Dict, Any
 
 # Resolve repository root directory safely relative to this file
 CONFIG_DIR = Path(__file__).resolve().parent
-APP_DIR = CONFIG_DIR.parent
-ROOT_DIR = APP_DIR.parent
+ROOT_DIR = CONFIG_DIR.parent
+APP_DIR = ROOT_DIR
 
 # Application Environment: 'development', 'testing', 'production'
 APP_ENV: str = os.getenv("APP_ENV", "production").lower()

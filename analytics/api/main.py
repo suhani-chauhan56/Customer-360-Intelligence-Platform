@@ -26,9 +26,9 @@ from analytics import (
     classify_lifecycle_stage,
     calculate_population_stability_index,
 )
-from streamlit_app.services.customer_service import diagnose_customer_risk_factors, explain_rfm_segment
-from streamlit_app.services.grounded_ai_service import GroundedAIService
-from streamlit_app.services.model_service import (
+from services.customer_service import diagnose_customer_risk_factors, explain_rfm_segment
+from services.grounded_ai_service import GroundedAIService
+from services.model_service import (
     load_ml_model,
     create_model_input_frame,
     predict_churn_propensity,

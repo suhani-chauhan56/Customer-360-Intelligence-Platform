@@ -205,3 +205,31 @@ def get_customer_recommendations(
         })
     return recs
 
+
+def summarize_recommendation_methods(recs_df: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate recommendation volume and share by recommendation method."""
+    if recs_df is None or recs_df.empty:
+        return pd.DataFrame(columns=["Recommendation Method", "Volume", "Share"])
+
+    method_col = "method" if "method" in recs_df.columns else "method_name" if "method_name" in recs_df.columns else None
+    if not method_col:
+        return pd.DataFrame(columns=["Recommendation Method", "Volume", "Share"])
+
+    summary = (
+        recs_df.groupby(method_col, as_index=False)
+        .agg(Volume=("customer_id", "count"))
+        .rename(columns={method_col: "Recommendation Method"})
+    )
+    total = summary["Volume"].sum()
+    summary["Share"] = (summary["Volume"] / max(1, total)).round(4)
+    return summary.sort_values("Volume", ascending=False)
+
+
+__all__ = [
+    "RECOMMENDATION_RULES",
+    "generate_customer_recommendation",
+    "compute_recommendation_portfolio",
+    "compute_recommendation_summary",
+    "get_customer_recommendations",
+    "summarize_recommendation_methods",
+]

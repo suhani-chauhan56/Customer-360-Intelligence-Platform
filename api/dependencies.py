@@ -2,12 +2,10 @@ import sys
 from pathlib import Path
 from typing import Generator, Optional
 
-# Ensure root and streamlit_app are in sys.path
+# Ensure root is in sys.path
 ROOT_DIR = Path(__file__).resolve().parent.parent
-APP_DIR = ROOT_DIR / "streamlit_app"
-for p in [str(ROOT_DIR), str(APP_DIR)]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 from fastapi import Header, HTTPException, Security, status, Depends
 from fastapi.security import APIKeyHeader, HTTPBearer, HTTPAuthorizationCredentials

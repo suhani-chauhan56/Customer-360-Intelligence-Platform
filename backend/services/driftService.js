@@ -1,6 +1,6 @@
-const calculatePsi = (baselineArr, targetArr, numBuckets = 10) => {
-  const bClean = baselineArr.filter((v) => v !== null && !isNaN(v)).sort((a, b) => a - b);
-  const tClean = targetArr.filter((v) => v !== null && !isNaN(v)).sort((a, b) => a - b);
+const calculatePsi = (baselineArr = [], targetArr = [], numBuckets = 10) => {
+  const bClean = (baselineArr || []).filter((v) => v !== null && v !== undefined && !isNaN(Number(v))).map(Number).sort((a, b) => a - b);
+  const tClean = (targetArr || []).filter((v) => v !== null && v !== undefined && !isNaN(Number(v))).map(Number).sort((a, b) => a - b);
 
   if (bClean.length === 0 || tClean.length === 0) return 0.0;
 

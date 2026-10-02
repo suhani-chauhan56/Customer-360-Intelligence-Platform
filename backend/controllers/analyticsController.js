@@ -80,6 +80,65 @@ const getAnalyticsExplorer = async (req, res, next) => {
   }
 };
 
+const exportCohortCsv = async (req, res, next) => {
+  try {
+    const filters = {
+      segment: req.query.segment || 'All',
+      risk_level: req.query.risk_level || 'All',
+      state: req.query.state || 'All',
+      clv_band: req.query.clv_band || 'All',
+      recency_filter: req.query.recency_filter || 'All',
+      search_query: req.query.search_query || '',
+    };
+
+    const filtered = dataService.getCustomers(filters);
+    const limit = parseInt(req.query.limit || 95000, 10);
+    const cohort = filtered.slice(0, limit);
+
+    const headers = [
+      'customer_id',
+      'total_spend',
+      'total_orders',
+      'avg_order_value',
+      'recency_days',
+      'rfm_segment',
+      'churn_probability',
+      'predicted_clv',
+      'priority_score',
+      'state',
+      'city',
+      'favorite_category',
+    ];
+
+    const csvRows = [headers.join(',')];
+
+    cohort.forEach((c) => {
+      const row = [
+        c.customer_id,
+        c.total_spend,
+        c.total_orders,
+        c.avg_order_value,
+        c.recency_days,
+        `"${(c.rfm_segment || '').replace(/"/g, '""')}"`,
+        c.churn_probability,
+        c.predicted_clv,
+        c.priority_score,
+        `"${(c.state || '').replace(/"/g, '""')}"`,
+        `"${(c.city || '').replace(/"/g, '""')}"`,
+        `"${(c.favorite_category || '').replace(/"/g, '""')}"`,
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="customer_analytics_export.csv"');
+    res.status(200).send(csvRows.join('\n'));
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAnalyticsExplorer,
+  exportCohortCsv,
 };

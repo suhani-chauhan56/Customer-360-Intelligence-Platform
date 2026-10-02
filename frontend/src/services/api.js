@@ -42,6 +42,7 @@ export const getCustomerNextBestCategory = (customerId) => apiClient.get(`/recom
 
 // Analytics Explorer APIs
 export const getAnalyticsExplorer = (params) => apiClient.get('/analytics/explorer', { params });
+export const exportCohortCsv = (params) => apiClient.get('/analytics/export', { params, responseType: 'blob' });
 
 // Data Quality APIs
 export const getDataQuality = () => apiClient.get('/data-quality');

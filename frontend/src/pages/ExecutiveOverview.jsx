@@ -35,7 +35,7 @@ export default function ExecutiveOverview() {
   };
 
   const handleDownloadCsv = () => {
-    window.open(`/api/customers?limit=95000`, '_blank');
+    window.open('/api/analytics/export?limit=95000', '_blank');
   };
 
   if (loading || !data) {

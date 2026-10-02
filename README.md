@@ -1,137 +1,139 @@
-# Customer 360 Intelligence Platform
+# CustomerAtlas AI — Enterprise Customer 360 Intelligence Platform
 
-### Data Analytics + Machine Learning + Full-Stack Application (MERN Edition)
-
-[![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![Express.js](https://img.shields.io/badge/Express.js-4.19%2B-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
-[![React 18](https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
-[![Vite](https://img.shields.io/badge/Vite-5.4-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Vercel Deployment](https://img.shields.io/badge/Deployment-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
-
-> **CustomerAtlas AI** is an enterprise-grade customer intelligence and AI platform that unifies multi-source transactional, behavioral, and customer feedback data into dynamic business analytics, machine learning predictions, explainable insights, grounded AI decision support, and automated commercial retention workflows.
-> 
-> **Core Architecture Positioning:**
-> - **Data Analytics & ML = Core Intelligence Engine:** Rigorous data cleaning, feature engineering, RFM modeling, 12-month forward CLV, churn propensity modeling, sentiment/NLP analysis, and decision rule recommendations.
-> - **MERN Stack = High-Performance Application Layer:** React 18, Vite, Tailwind CSS, Recharts, Node.js, Express, and MongoDB providing a responsive, production-ready interface with **zero dependency on Streamlit**.
-> - **Deployment = Vercel Serverless:** Cloud-native architecture ready for instant edge deployment.
-
-```
-                DATA (Multi-Source Transaction & Review Ledgers)
-                                       │
-                    DATA PROCESSING (Cleaning & Validation)
-                                       │
-                            EDA (Exploratory Data Analysis)
-                                       │
-                   ┌───────────────────┼───────────────────┐
-                   ▼                   ▼                   ▼
-             RFM ANALYSIS        CLV MODELING       CHURN MODELING
-                   └───────────────────┬───────────────────┘
-                                       │
-                             CUSTOMER SEGMENTATION
-                                       │
-                             SENTIMENT / NLP CSAT
-                                       │
-                               BUSINESS INSIGHTS
-                                       │
-                            NEXT-BEST RECOMMENDATIONS
-                                       │
-                                 MERN BACKEND
-                                       │
-                                REACT FRONTEND
-                                       │
-                              VERCEL DEPLOYMENT
-```
+> Unified Customer Intelligence, Predictive Churn Modeling, 12-Month CLV Forecasting, and Grounded Decision Support System.
 
 ---
 
-## 1. Architecture Overview
+## 1. Project Overview
+
+### Problem Statement
+Modern e-commerce and retail businesses operate across fragmented data silos: transaction ledgers, payment gateways, customer review forums, and digital web engagement logs. Without a unified analytical framework, commercial teams struggle with:
+- **Blind Retention:** Inability to pinpoint high-value accounts at imminent risk of churning.
+- **Single-Purchase Drop-Off:** Failure to convert first-time buyers into dependable repeat purchasers.
+- **Generic Marketing:** Lack of granular RFM segmentation and personalized next-best-action guidance.
+- **Data Governance Gaps:** Inability to detect population drift (PSI) or verify feature integrity before decisions are made.
+
+### Purpose and Objective
+**CustomerAtlas AI** was developed to bridge the gap between rigorous data science modeling and enterprise commercial operations. It transforms 94,983 unified customer records into actionable business intelligence through:
+1. Multi-dimensional RFM quintile segmentation and strategic playbooks.
+2. Machine learning-driven 12-month forward Customer Lifetime Value (CLV) regression.
+3. Calibrated XGBoost churn propensity modeling and revenue-at-risk prioritization.
+4. Voice of Customer (VoC) Portuguese sentiment theme extraction and CSAT tracking.
+5. Deterministic, hallucination-free decision support with full data lineage and drift monitoring.
+
+---
+
+## 2. Key Features
+
+- **Executive Intelligence Dashboard:** Real-time macro GMV, active buyer rates, AOV, repeat purchase metrics, and dynamic Pareto revenue concentration analysis.
+- **Customer 360 Unified Dossier:** Individual 360° dossiers across 94,983 profiles with 6-Factor Vital Health Scoring ($0-100$), 6-stage lifecycle state machine, chronological order timeline, and payment breakdown.
+- **RFM Segmentation Engine:** 6 canonical cohorts (*Champions*, *Loyal*, *Potential Loyalists*, *Regular*, *At Risk*, *Lost*), 5x5 heatmap comparisons, and targeted cohort builder with CSV export.
+- **12-Month Predictive CLV Engine:** Dynamic value tier banding (*Platinum*, *Gold*, *Silver*, *Bronze*), top decile concentration analysis, and interactive what-if revenue simulator.
+- **Churn Intelligence & Risk Exposure:** Revenue exposure quantification, 4-quadrant value-risk matrix, XGBoost feature drivers, and prioritized retention queue:
+  $$\text{Priority Score} = \text{Churn Probability} \times \left(\frac{\text{Predicted CLV}}{\text{CLV}_{p99}}\right) \times 100$$
+- **Sentiment & CSAT Intelligence:** Macro CSAT rating ($4.1/5.0$), longitudinal monthly trends, segment ratings, and Portuguese keyword root-cause extraction for logistics friction.
+- **Multi-Signal Action Engine:** Transparent 7-rule decision engine translating risk, value, recency, and CSAT signals into immediate commercial retention and upsell workflows.
+- **Analytics Explorer:** Multi-criteria slice-and-dice discovery across recency windows, spend brackets, geographic states, and risk tiers with live distribution histograms.
+- **Data Quality & MLOps Governance:** Automated schema validation, field null completeness audit, raw-to-processed data lineage, and Population Stability Index (PSI) feature drift monitoring.
+- **Ask CustomerAtlas AI:** Deterministic, mathematically grounded conversational AI providing direct answers backed by verified profile records with zero hallucinations.
+
+---
+
+## 3. Data & Dataset
+
+The platform is engineered on verified multi-source transaction and customer feedback records:
+
+| Dataset / Table | Records / Scale | Description | Key Attributes |
+| :--- | :--- | :--- | :--- |
+| **`customer_360_features.csv`** | 94,983 Profiles | Canonical entity feature store | `customer_id`, `total_spend`, `total_orders`, `avg_order_value`, `recency_days`, `frequency`, `monetary`, `rfm_segment`, `churn_probability`, `predicted_clv`, `priority_score`, `state`, `city`, `favorite_category` |
+| **`fact_orders.csv`** | 99,441 Transactions | Transaction purchase ledger | `order_id`, `customer_id`, `purchase_date`, `order_status`, `item_price`, `freight_value`, `revenue`, `month_year` |
+| **`fact_payments.csv`** | 103,886 Payments | Payment method breakdown | `order_id`, `payment_type`, `payment_installments`, `payment_value` |
+| **`olist_order_reviews_dataset.csv`** | 104,721 Reviews | Voice of Customer feedback | `review_id`, `order_id`, `review_score`, `review_comment_message`, `review_creation_date` |
+| **`recommendations.csv`** | 474,917 Associations | Market basket recommendations | `customer_id`, `rank`, `recommended_category`, `method`, `reason` |
+| **`model_feature_importance.csv`** | 6 Features | Global model feature drivers | `feature`, `churn_importance`, `clv_importance` |
+
+---
+
+## 4. Data Analytics & Data Science Workflow
+
+```
+[Raw Ingestion] ──────> [Data Cleaning] ──────> [Feature Engineering] ──────> [ML Modeling]
+ ├─ Orders Ledgers       ├─ Deduplication        ├─ RFM Quintile Scoring       ├─ XGBoost Churn
+ ├─ Payments Data        ├─ Type Enforcement     ├─ Digital Web Scores         ├─ Ridge CLV Regressor
+ └─ Review Texts         └─ Null Imputation      └─ Inactivity Windows         └─ TF-IDF CSAT
+                                                                                     │
+                                                                                     ▼
+[Action Engine] <────── [Executive Insights] <─── [Entity Store] <──────── [Health Scoring]
+ ├─ Win-Back Flows       ├─ Pareto Concentration   ├─ MongoDB Database          ├─ 6-Factor Vital Signs
+ ├─ VIP Concierge        ├─ Single-Order Bottleneck└─ In-Memory Cache           └─ Lifecycle State Machine
+ └─ CSV Export Queue     └─ Geographic Clusters
+```
+
+1. **Data Collection & Ingestion:** Ingest raw multi-table transaction facts, review ledgers, and catalog categories.
+2. **Data Cleaning & Sanity Checking:** Filter canceled/unavailable orders, eliminate orphan foreign keys, enforce non-negative monetary constraints, and calibrate probabilities to $[0.0, 1.0]$.
+3. **Feature Engineering:** Calculate days since last purchase (`recency_days`), total transaction count (`frequency`), gross monetary value (`monetary`), average order value (`avg_order_value`), and review sentiment scores.
+4. **Exploratory Data Analysis (EDA):** Analyze spend distributions, inactivity intervals, category affinities, and geographic demand concentrations.
+5. **Machine Learning & Predictive Modeling:**
+   - Supervised XGBoost Classifier for churn probability estimation.
+   - Ridge / XGBoost Regressor for forward 12-month CLV expectation.
+   - Market basket co-occurrence modeling for Next-Best-Category cross-sell.
+6. **Health Scoring & Lifecycle State Machine:** Synthesize vital signs into a single composite score ($0-100$) and track accounts across 6 lifecycle milestones.
+7. **Actionable Business Recommendations:** Apply multi-signal commercial rules to generate prioritized win-back, loyalty, and recovery tasks.
+8. **MLOps Drift Monitoring:** Monitor distribution stability using Population Stability Index (PSI) between baseline and active cohorts.
+
+---
+
+## 5. Technical Architecture
 
 ```mermaid
 flowchart TD
-    subgraph Frontend_Vercel ["Frontend Layer (Vercel Serverless / SPA)"]
-        SPA["React 18 + Vite SPA\n(Tailwind CSS, Lucide Icons, Recharts)"]
-        ROUTER["React Router v6\n(11 Enterprise Workspaces)"]
-        API_CLIENT["Axios REST Client\n(Environment-driven API Base URL)"]
+    subgraph Client_Layer ["Frontend SPA Layer (React 18 + Vite + Tailwind)"]
+        SPA["React 18 Single Page Application"]
+        ROUTER["React Router v6 (11 Dedicated Workspaces)"]
+        CHARTS["Recharts (Bar, Line, Area, Pie, Gauge)"]
+        API_CLIENT["Axios REST Client (/api)"]
         SPA --> ROUTER
+        ROUTER --> CHARTS
         ROUTER --> API_CLIENT
     end
 
-    subgraph Backend_Node ["Backend API Layer (Node.js + Express / Vercel Serverless)"]
-        SRV["Express REST API Engine\n(CORS, Helmet, Rate Limiting, Compression)"]
-        AUTH_ROUTER["Master Router (/api/...)"]
-        
-        subgraph Controllers ["Controllers & Middleware"]
-            DASH_C["Dashboard Controller"]
-            CUST_C["Customer Controller"]
-            RFM_C["RFM Controller"]
-            CLV_C["CLV Controller"]
-            CHURN_C["Churn Controller"]
-            SENT_C["Sentiment Controller"]
-            REC_C["Recommendation Controller"]
-            EXP_C["Analytics Explorer Controller"]
-            DQ_C["Data Quality Controller"]
-            AI_C["Grounded AI Controller"]
-        end
-
-        subgraph Domain_Services ["Domain Calculation Services"]
-            DATA_SVC["Data Service\n(In-Memory CSV Cache / Indexed Map)"]
-            CUST_SVC["Customer 360 & Health Scoring Engine"]
-            RFM_SVC["RFM Intelligence & Segmentation Engine"]
-            CLV_SVC["12-Month Predictive CLV Engine"]
-            CHURN_SVC["Churn Propensity & Revenue Exposure Engine"]
-            SENT_SVC["CSAT Sentiment & Theme Extraction Engine"]
-            REC_SVC["Decision Rule Recommendation Engine"]
-            DRIFT_SVC["PSI Population Stability Drift Engine"]
-            AI_SVC["Grounded AI Deterministic Semantic Router"]
-            AUDIT_SVC["Enterprise Compliance Audit Logger"]
-        end
-
-        SRV --> AUTH_ROUTER
-        AUTH_ROUTER --> Controllers
-        Controllers --> Domain_Services
+    subgraph Server_Layer ["Backend API Engine (Node.js + Express)"]
+        SRV["Express REST Router"]
+        CTRL["10 Domain Controllers\n(Analytics, Churn, CLV, Customers, Quality, AI, etc.)"]
+        SRV --> CTRL
     end
 
-    subgraph Data_Storage ["Data & Feature Persistence"]
-        MONGO[("MongoDB Database\n(Customer Collection with Compound Indexes)")]
-        CSV_STORE[("Canonical Feature Store\n(customer_360_features.csv — 94,983 Profiles)")]
-        RAW_ORDERS[("Transaction Ledgers\n(fact_orders.csv, fact_payments.csv)")]
-        RAW_REVIEWS[("Voice of Customer\n(olist_order_reviews_dataset.csv)")]
+    subgraph Service_Layer ["Domain Calculation Services"]
+        CUST_SVC["Customer 360 & Health Scoring"]
+        RFM_SVC["RFM Intelligence & Segmentation"]
+        CLV_SVC["12-Month Predictive CLV Engine"]
+        CHURN_SVC["Churn Propensity & Risk Exposure"]
+        SENT_SVC["CSAT Sentiment & Theme Extraction"]
+        REC_SVC["7-Rule Decision Recommendation Engine"]
+        DRIFT_SVC["PSI Feature Drift Monitoring"]
+        AI_SVC["Deterministic Grounded AI Router"]
+        CTRL --> Service_Layer
     end
 
-    API_CLIENT -->|HTTP / JSON| SRV
-    Domain_Services --> MONGO
-    Domain_Services --> CSV_STORE
-    Domain_Services --> RAW_ORDERS
-    Domain_Services --> RAW_REVIEWS
+    subgraph Persistence_Layer ["Data & Feature Store"]
+        MEM_STORE[("In-Memory Canonical Feature Cache (94,983 Profiles)")]
+        MONGO[("MongoDB Database (Compound Indexes)")]
+        Service_Layer --> MEM_STORE
+        Service_Layer -.-> MONGO
+    end
+
+    API_CLIENT -->|REST HTTP / JSON| SRV
 ```
 
----
-
-## 2. Core Workspaces & Capabilities
-
-CustomerAtlas AI provides 11 specialized enterprise operational workspaces:
-
-| # | Workspace | Route | Core Business Functionality |
-| :-: | :--- | :--- | :--- |
-| **1** | **Executive Overview** | `/` or `/dashboard` | Macro GMV, Active Buyer Count ($\le 180\text{d}$), Repeat Purchase Rate ($3.0\%$), Average Order Value (AOV), Average Predicted CLV, Monthly Revenue Trajectory, Geographic Revenue by State, and Automated Pareto Insight Cards. |
-| **2** | **Customer 360** | `/customers` or `/customers/:id` | Unified 360 dossier across 94,983 customer profiles. 6-Factor Health Score ($0-100$), 6-Stage Lifecycle State Machine, Order History Ledger, Payment Breakdown, Risk Diagnostics, and PDF Dossier Export. |
-| **3** | **Customer Segmentation** | `/segmentation` or `/rfm` | 6 Canonical RFM Cohorts (Champions, Loyal, Potential Loyalists, Regular, At Risk, Lost), 5x5 RFM Heatmap, Segment Comparison Matrix, Actionable Strategic Playbooks, and Custom Cohort Filter with CSV Export. |
-| **4** | **Customer Value / CLV** | `/clv` | 12-Month Predictive CLV Benchmarks, Dynamic Value Tiers (Platinum, Gold, Silver, Bronze), Top 10% Decile Concentration Analysis, and Interactive What-If Scenario Revenue Growth Simulator. |
-| **5** | **Churn Intelligence** | `/churn` | At-Risk Revenue Exposure (R$ 1.9M+), 4-Quadrant Value-Risk Matrix, Top Churn Risk Drivers, Retention Prioritization Ranking Queue ($\text{Priority} = \text{Churn Prob} \times \frac{\text{CLV}}{\text{CLV}_{p99}} \times 100$), and Churn Mitigation Simulator. |
-| **6** | **Sentiment Intelligence** | `/sentiment` | Macro CSAT Rating ($4.1/5.0$), Positive/Neutral/Negative Distribution, Longitudinal Satisfaction Trends, Segment CSAT Ratings, and Portuguese Root-Cause Negative Review Keyword Extraction. |
-| **7** | **Recommendations** | `/recommendations` | Transparent 7-Rule Decision Engine (VIP Concierge, Win-Back, Loyalty, Cross-Sell, Service Recovery, Purchase Boost, Nurture), Action Portfolio Allocation, and Paginated Action Queue with CSV Export. |
-| **8** | **Analytics Explorer** | `/explorer` or `/insights` | Multi-dimensional slicing (Segment, Churn Risk, State, Product Category, Recency, Spend), Distribution Charts, Paginated Filterable Data Table, 1-Click 360 Navigation, and Export. |
-| **9** | **Data Quality & Governance** | `/quality` | 100% Completeness Audit, Field-Level Null Verification, Raw-to-Processed Data Lineage Flow, Population Stability Index (PSI) Drift Monitor, and Real-Time Compliance Audit Stream. |
-| **10** | **Methodology & Documentation** | `/methodology` | Complete Mathematical Formulas, Health Score Weights, RFM Cutoffs, Model Targets, Architecture Specifications, and MLOps Data Contracts. |
-| **11** | **Ask CustomerAtlas (AI)** | `/ask-atlas` | Deterministic Grounded Conversational AI with zero hallucination risk, providing direct mathematical grounding and deep link navigation to customer profiles. |
+### Technology Stack
+- **Frontend:** React 18.3, Vite 5.4, Tailwind CSS 3.4, Recharts 2.12, Lucide React, Axios, React Router DOM 6.23.
+- **Backend:** Node.js 18+, Express.js 4.19, Mongoose 8.4 / MongoDB (with graceful in-memory CSV cache fallback), CSV-Parser, Cors, Dotenv.
+- **Data Science & ML:** Python 3.11+, Pandas 2.2, NumPy 1.26, Scikit-learn 1.4, XGBoost 2.0, Joblib, `analytics.py`.
+- **Deployment:** Vercel Serverless Function bridge (`api/index.js`) + static CDN distribution (`vercel.json`).
 
 ---
 
-## 3. Mathematical Formulations & Data Science Logic
-
-All analytical formulas and data science logic are identical to the verified enterprise specifications:
+## 6. Mathematical Formulations & Data Science Logic
 
 ### A. 6-Factor Customer Health Score ($0-100$)
 $$\text{Health Score} = \left(0.25 R_{\text{norm}} + 0.25 F_{\text{norm}} + 0.25 M_{\text{norm}} + 0.15 \text{Eng}_{\text{norm}} + 0.10 \text{CSAT}_{\text{norm}} - 0.20 \text{Risk}\right) \times 100$$
@@ -142,76 +144,55 @@ $$\text{Health Score} = \left(0.25 R_{\text{norm}} + 0.25 F_{\text{norm}} + 0.25
 - $\text{CSAT}_{\text{norm}} = \frac{\text{CSAT Score}}{5.0}$
 - $\text{Risk} = \text{Churn Probability}$
 
-### B. 6-Stage Customer Lifecycle State Machine
-1. **New:** Single order, Recency $\le 60\text{ days}$.
-2. **Growing:** $2+$ orders, Recency $\le 90\text{ days}$, Churn Prob $< 0.40$.
-3. **Core / Loyal:** High spend ($\ge \text{R\$ } 300$) or $3+$ orders, Recency $\le 180\text{ days}$.
-4. **At Risk:** Recency $> 180\text{ days}$ or Churn Prob $\ge 0.60$.
-5. **Dormant / Inactive:** Recency $> 270\text{ days}$, Churn Prob $\ge 0.70$.
-6. **Lost / Churned:** Recency $> 365\text{ days}$, Churn Prob $\ge 0.85$.
-
-### C. Retention Priority Score
-$$\text{Priority Score} = \text{Churn Probability} \times \left(\frac{\text{Predicted CLV}}{\text{CLV}_{p99}}\right) \times 100$$
-
-### D. Population Stability Index (PSI) Feature Drift
-$$\text{PSI} = \sum_{i=1}^{k} \left(A_i - E_i\right) \times \ln\left(\frac{A_i + \epsilon}{E_i + \epsilon}\right)$$
-- $\text{PSI} < 0.10$: Stable / No Drift.
-- $0.10 \le \text{PSI} < 0.25$: Moderate Drift / Monitor.
-- $\text{PSI} \ge 0.25$: Significant Drift / Retrain Required.
+### B. Population Stability Index (PSI) Feature Drift
+$$\text{PSI} = \sum_{i=1}^{k} \left(T_i - B_i\right) \times \ln\left(\frac{T_i}{B_i}\right)$$
+- $\text{PSI} < 0.10$: Stable / No Action Required.
+- $0.10 \le \text{PSI} < 0.25$: Moderate Drift / Flag for Monitoring.
+- $\text{PSI} \ge 0.25$: Significant Drift / Action Required before Retraining.
 
 ---
 
-## 4. REST API Reference
+## 7. REST API Reference
 
 The backend exposes fully documented RESTful JSON endpoints under `/api`:
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/api/dashboard` | Executive KPIs, monthly trajectory, geographic breakdown, and automated insights. |
+| `GET` | `/api/dashboard` | Executive KPIs, monthly trajectory, geographic breakdown, and automated Pareto insights. |
 | `GET` | `/api/customers` | Paginated customer list with sorting and multi-field filters (`page`, `limit`, `segment`, `risk`, `state`, `search`). |
 | `GET` | `/api/customers/:id` | Full Customer 360 profile, health score breakdown, orders, payments, timeline, and risk diagnostics. |
-| `GET` | `/api/rfm` | RFM segment distributions, 5x5 heatmap grid, comparison matrix, and strategic playbooks. |
-| `GET` | `/api/rfm/cohort` | Filtered RFM cohort query with criteria matching. |
-| `GET` | `/api/clv` | CLV overview, distribution brackets, top 10% decile analysis, and scenario simulation. |
-| `POST` | `/api/clv/simulate` | What-if scenario simulator for repeat rate, retention, and AOV improvements. |
-| `GET` | `/api/churn` | Churn overview, at-risk revenue exposure, 4-quadrant value-risk matrix, and priority queue. |
-| `POST` | `/api/churn/simulate` | Churn intervention simulation calculator. |
-| `GET` | `/api/sentiment` | CSAT overview, sentiment distribution, monthly trend, segment breakdown, and negative review themes. |
-| `GET` | `/api/recommendations` | Next-Best-Action recommendations overview, rule distribution, and actionable customer queue. |
-| `GET` | `/api/recommendations/:id` | Tailored recommendation and decision rule for a specific customer ID. |
-| `GET` | `/api/analytics/explore` | Sliced analytics explorer with aggregate distribution charts and data table. |
-| `GET` | `/api/analytics/export` | CSV export generator for filtered customer cohorts. |
-| `GET` | `/api/quality` | Data completeness score, null audits, data lineage, and PSI drift monitoring. |
-| `GET` | `/api/quality/audit` | Recent security, export, and compliance audit trail events. |
-| `POST` | `/api/ai/ask` | Grounded AI decision support with deterministic intent routing and grounded data citations. |
+| `GET` | `/api/customers/:id/dossier` | Complete dossier export metadata for immediate JSON/PDF download. |
+| `GET` | `/api/rfm` | RFM segment distributions, size shares, revenue shares, and benchmark averages. |
+| `GET` | `/api/rfm/:segment` | Granular drill-down metrics, top customer records, and strategic playbook for a segment. |
+| `GET` | `/api/rfm/compare` | Side-by-side comparative analysis of two chosen segments across 8 commercial dimensions. |
+| `POST` | `/api/rfm/cohort` | Targeted marketing cohort builder matching segments, spend thresholds, and risk bounds. |
+| `GET` | `/api/clv` | CLV overview benchmarks, dynamic value tier brackets, and top 10% high-value cohort analysis. |
+| `POST` | `/api/clv/simulate` | Forward 12-month CLV expectation simulator based on RFM and engagement inputs. |
+| `GET` | `/api/churn` | Churn overview, revenue exposure, 4-quadrant value-risk matrix, and priority queue. |
+| `POST` | `/api/churn/simulate` | Real-time churn propensity calculator with automated playbook recommendation. |
+| `GET` | `/api/sentiment` | CSAT overview, star distribution, longitudinal trend, segment ratings, and negative themes. |
+| `GET` | `/api/sentiment/reviews` | Review explorer with star rating filters and written comment filtering. |
+| `GET` | `/api/recommendations` | Next-Best-Action recommendations overview, rule distribution, and actionable queue. |
+| `GET` | `/api/recommendations/customer/:id` | Market basket category recommendations for a specific customer ID. |
+| `GET` | `/api/analytics/explorer` | Multi-criteria sliced explorer with histograms and paginated cohort table. |
+| `GET` | `/api/analytics/export` | Downloadable CSV export generator for filtered customer cohorts. |
+| `GET` | `/api/data-quality` | Data completeness audit, schema test suite, data lineage, and PSI drift monitoring. |
+| `POST` | `/api/data-quality/audit` | Record compliance and operational audit events. |
+| `POST` | `/api/grounded-ai/ask` | Deterministic natural-language decision support with verified data grounding. |
 
 ---
 
-## 5. Technology Stack
+## 8. Business Insights & Practical Outcomes
 
-- **Frontend:**
-  - React 18.3 (Single Page Application)
-  - Vite 5.4 (High-speed bundler & dev server)
-  - Tailwind CSS 3.4 (Utility-first styling with custom enterprise theme)
-  - Recharts 2.12 (Interactive responsive charts: Bar, Line, Area, Pie, Radar)
-  - Lucide React (Enterprise icon system)
-  - Axios 1.7 (HTTP client with automatic error interception)
-  - React Router DOM 6.26 (Client-side routing)
-- **Backend:**
-  - Node.js 18+ / Express.js 4.19
-  - MongoDB 6+ & Mongoose 8.4 (Indexed customer collections with fallback in-memory cache)
-  - Cors, Helmet, Compression, Morgan (Enterprise HTTP middleware)
-  - CSV-Parser (High-throughput streaming ingestion)
-- **Data Science & ML (Preserved):**
-  - Python 3.11+
-  - Pandas, NumPy, Scikit-learn, XGBoost, Joblib
-  - `analytics.py` (Autonomous analytics engine)
-- **Deployment:**
-  - Vercel (Configured via `vercel.json` and `api/index.js`)
+1. **Pareto Revenue Concentration:** Identifies that top spenders contribute disproportionate gross merchandise value, enabling commercial leaders to deploy dedicated VIP concierge perks to safeguard the revenue foundation.
+2. **Single-Purchase Drop-Off Bottleneck:** Highlights that approximately 97% of customer relationships conclude after a single order, proving that an automated 14-day post-purchase replenishment workflow is the highest-leverage growth driver.
+3. **Revenue at Risk Defense:** Isolates accounts with high historical spend exhibiting elevated churn probabilities ($\ge 65\%$), queuing them into high-touch win-back workflows before complete account attrition.
+4. **Logistics Satisfaction Feedback:** Extracts specific Portuguese review feedback themes (e.g., delivery delays, missing items) to prioritize carrier SLA audits and warehouse dispatch verification.
+5. **Geographic Demand Allocation:** Reveals top state concentrations (e.g., São Paulo leading demand) to optimize regional logistics, fulfillment routing, and localized promotional campaigns.
 
 ---
 
-## 6. Project Structure
+## 9. Project Structure
 
 ```
 Customer 360 Intelligence/
@@ -219,8 +200,8 @@ Customer 360 Intelligence/
 │   └── index.js                      # Vercel Serverless Function Bridge
 ├── backend/
 │   ├── config/
-│   │   └── db.js                     # MongoDB connection with graceful in-memory fallback
-│   ├── controllers/                  # 10 Express Controllers
+│   │   └── db.js                     # MongoDB connection with in-memory fallback
+│   ├── controllers/                  # 10 REST API Controllers
 │   │   ├── analyticsController.js
 │   │   ├── churnController.js
 │   │   ├── clvController.js
@@ -233,7 +214,7 @@ Customer 360 Intelligence/
 │   │   └── sentimentController.js
 │   ├── middleware/
 │   │   └── errorHandler.js           # Centralized JSON error handler
-│   ├── models/                       # Mongoose Schemas & Compound Indexes
+│   ├── models/                       # Mongoose Schemas & Indexes
 │   │   ├── AuditEvent.js
 │   │   └── Customer.js
 │   ├── routes/                       # Express REST Route Handlers
@@ -249,7 +230,7 @@ Customer 360 Intelligence/
 │   │   ├── rfmRoutes.js
 │   │   └── sentimentRoutes.js
 │   ├── scripts/
-│   │   └── seedDatabase.js           # MongoDB batch ingestion & indexing script
+│   │   └── seedDatabase.js           # Optional MongoDB batch seed script
 │   ├── services/                     # Core Domain Calculation Engines
 │   │   ├── analyticsService.js
 │   │   ├── auditService.js
@@ -268,19 +249,20 @@ Customer 360 Intelligence/
 ├── data/
 │   ├── processed/
 │   │   ├── customer_360_features.csv # Canonical dataset (94,983 profiles)
-│   │   ├── fact_orders.csv           # Transaction records
+│   │   ├── fact_orders.csv           # Transaction records (99,441 orders)
 │   │   ├── fact_payments.csv         # Payment methods & installments
-│   │   └── recommendations.csv       # Recommended actions
+│   │   ├── model_feature_importance.csv # XGBoost feature weights
+│   │   └── recommendations.csv       # Market basket cross-sell rules
 │   └── raw/
 │       └── olist_order_reviews_dataset.csv # Voice of Customer reviews
 ├── frontend/
 │   ├── src/
-│   │   ├── components/               # 20+ Reusable UI components
+│   │   ├── components/               # Reusable UI & Chart components
 │   │   │   ├── charts/               # Recharts wrappers (Bar, Line, Pie, Gauge)
-│   │   │   ├── common/               # KpiCard, InsightCard, Badge, EmptyState, etc.
-│   │   │   ├── customer/             # HealthGrid, LifecycleJourney, Diagnostics, Timeline
-│   │   │   └── layout/               # Navbar, Sidebar, Footer, AppLayout
-│   │   ├── pages/                    # 11 Enterprise Workspace Pages
+│   │   │   ├── common/               # KpiCard, InsightCard, CustomerTable, Badge
+│   │   │   ├── customer/             # HealthGrid, LifecycleJourney, RiskDiagnostics, Timeline
+│   │   │   └── layouts/              # Navbar, Sidebar, Footer, AppLayout
+│   │   ├── pages/                    # 11 Dedicated Workspace Pages
 │   │   │   ├── AnalyticsExplorer.jsx
 │   │   │   ├── AskAtlas.jsx
 │   │   │   ├── ChurnIntelligence.jsx
@@ -295,8 +277,8 @@ Customer 360 Intelligence/
 │   │   ├── services/
 │   │   │   └── api.js                # Axios REST API Client
 │   │   ├── utils/
-│   │   │   └── formatting.js         # Currency, percentage, count formatting
-│   │   ├── App.jsx                   # Master Router & Theme Container
+│   │   │   └── formatting.js         # Currency, percentage, count formatters
+│   │   ├── App.jsx                   # Master Router & Route Declarations
 │   │   ├── index.css                 # Tailwind CSS styles
 │   │   └── main.jsx                  # React DOM Entrypoint
 │   ├── index.html
@@ -304,44 +286,43 @@ Customer 360 Intelligence/
 │   ├── postcss.config.js
 │   ├── tailwind.config.js
 │   └── vite.config.js
-├── models/                           # Serialized ML Model Registry
+├── models/                           # Serialized ML Model Artifacts
 │   ├── churn_model.pkl
 │   ├── clv_model.pkl
 │   ├── scaler.pkl
 │   └── sentiment_model.pkl
-├── src/                              # Preserved Python Data Science Utilities
+├── src/                              # Python Data Science Utilities
 │   ├── data_loader.py
 │   └── preprocessing.py
 ├── analytics.py                      # Standalone Python Analytics Pipeline
 ├── requirements.txt                  # Python Data Science Dependencies
 ├── package.json                      # Root NPM Orchestration Script
-├── vercel.json                       # Vercel Production Deployment Configuration
+├── vercel.json                       # Vercel Production Deployment Config
 └── .env.example                      # Environment Configuration Template
 ```
 
 ---
 
-## 7. Getting Started & Local Development
+## 10. Getting Started & Local Setup
 
 ### Prerequisites
-- Node.js 18.x or higher
-- npm 9.x or higher
-- (Optional) MongoDB 6.x or MongoDB Atlas URI (if omitted, server runs with high-performance in-memory cache)
-- (Optional) Python 3.11+ for offline model training / data science workflows
+- **Node.js**: Version `18.x` or higher
+- **npm**: Version `9.x` or higher
+- *(Optional)* **Python**: `3.11+` for running offline data science pipelines in `analytics.py`
+- *(Optional)* **MongoDB**: Local MongoDB instance or MongoDB Atlas connection string (if omitted, the platform runs seamlessly using its fast in-memory CSV cache)
 
-### Step 1: Clone & Configure Environment
+### Step 1: Clone Repository & Configure Environment
 ```bash
-# Clone the repository
 git clone https://github.com/suhani-chauhan56/Customer-360-Intelligence-Platform.git
 cd Customer-360-Intelligence-Platform
 
-# Copy environment file
+# Copy environment variables template
 cp .env.example .env
 ```
 
 ### Step 2: Install Dependencies
 ```bash
-# Install root dependencies
+# Install root orchestration packages
 npm install
 
 # Install backend dependencies
@@ -351,58 +332,73 @@ cd backend && npm install && cd ..
 cd frontend && npm install && cd ..
 ```
 
-### Step 3: Run the Application
-You can run both backend and frontend concurrently with a single command:
-
+### Step 3: Run the Full-Stack Application
+Start both backend API and frontend dev server concurrently:
 ```bash
-# Run both Backend API and Frontend UI concurrently
 npm run dev
 ```
 
-Or run each service individually:
+Or run each service individually in separate terminals:
 ```bash
 # Terminal 1 — Backend API (starts on http://localhost:5000)
 npm run dev:backend
 
-# Terminal 2 — Frontend UI (starts on http://localhost:5173)
+# Terminal 2 — Frontend UI (starts on http://localhost:3000)
 npm run dev:frontend
 ```
 
-Open your browser at `http://localhost:5173` to explore the platform.
+Open your browser at `http://localhost:3000` to interact with the platform.
 
-### Step 4 (Optional): Seed MongoDB
-If you have a live MongoDB instance and wish to populate the database:
+### Step 4 (Optional): Run Standalone Python Analytics Pipeline
+```bash
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install data science dependencies
+pip install -r requirements.txt
+
+# Execute analytics audit
+python analytics.py
+```
+
+### Step 5 (Optional): Seed MongoDB Instance
+If you have configured a `MONGODB_URI` in `.env` and want to populate MongoDB collections:
 ```bash
 npm run db:seed
 ```
 
 ---
 
-## 8. Deployment to Vercel
+## 11. Environment Variables Reference
 
-The platform is pre-configured for seamless zero-configuration deployment to **Vercel**:
-
-1. Push your repository to GitHub.
-2. Import the repository into **Vercel**.
-3. In Vercel Project Settings, set the environment variables:
-   - `MONGODB_URI` (optional, MongoDB Atlas connection string)
-   - `NODE_ENV` = `production`
-4. Deploy! Vercel automatically:
-   - Builds the frontend via `cd frontend && npm install && npm run build` into `frontend/dist`.
-   - Routes `/api/*` to the serverless backend function in `api/index.js`.
-   - Routes all other requests to the React SPA with full client-side routing support.
+| Variable | Required | Default | Description |
+| :--- | :---: | :--- | :--- |
+| `PORT` | Optional | `5000` | Port for the backend Express REST API server. |
+| `NODE_ENV` | Optional | `development` | Runtime environment (`development`, `production`, `test`). |
+| `MONGODB_URI` | Optional | `""` | MongoDB connection URI. If omitted, the server uses fast in-memory caching. |
+| `VITE_API_URL` | Optional | `/api` | Base API URL for frontend Axios client (defaults to `/api` proxy). |
 
 ---
 
-## 9. Data Protection & Security Governance
+## 12. Deployment (Vercel)
 
-- **Sanitized Headers:** Helmet protection against XSS, clickjacking, and MIME-sniffing.
-- **Rate Limiting:** Protects API endpoints against DDoS and abuse.
-- **Audit Logging:** Logs all critical export operations and queries for compliance.
-- **Zero Hardcoded Secrets:** Strict environment variable governance using `.env`.
+CustomerAtlas AI is configured for one-click deployment to **Vercel**:
+1. Push repository to GitHub.
+2. Import project into Vercel.
+3. Configure environment variables (`NODE_ENV=production`, optional `MONGODB_URI`).
+4. Vercel automatically builds the frontend into `frontend/dist` and mounts backend routes to `api/index.js`.
 
 ---
 
-## 10. License & Attribution
+## 13. Future Roadmap
+
+- **Streaming Webhook Ingestion:** Ingest real-time order and review events via authenticated webhooks.
+- **Automated CRM & Email Integrations:** Export prioritized retention queues directly into marketing platforms (e.g., Klaviyo, HubSpot, SendGrid).
+- **Automated Uplift Modeling:** Implement randomized control trial (RCT) tracking to measure incremental lift from win-back vouchers.
+
+---
+
+## 14. License
 
 This project is licensed under the MIT License. Developed for enterprise customer intelligence, retention modeling, and commercial decision support.

@@ -65,7 +65,11 @@ export default function GaugeChart({
       {actionInfo && (
         <div className="mt-3 text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-left w-full">
           <span className="font-bold text-slate-800">Action: </span>
-          <span>{actionInfo.action || actionInfo}</span>
+          <span>
+            {typeof actionInfo === 'string'
+              ? actionInfo
+              : actionInfo.action || actionInfo.description || actionInfo.action_type || ''}
+          </span>
         </div>
       )}
     </div>

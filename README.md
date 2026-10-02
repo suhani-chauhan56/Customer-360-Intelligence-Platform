@@ -1,4 +1,6 @@
-# CustomerAtlas AI — Unified Customer 360 Intelligence Platform (MERN Edition)
+# Customer 360 Intelligence Platform
+
+### Data Analytics + Machine Learning + Full-Stack Application (MERN Edition)
 
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Express.js](https://img.shields.io/badge/Express.js-4.19%2B-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
@@ -10,7 +12,37 @@
 
 > **CustomerAtlas AI** is an enterprise-grade customer intelligence and AI platform that unifies multi-source transactional, behavioral, and customer feedback data into dynamic business analytics, machine learning predictions, explainable insights, grounded AI decision support, and automated commercial retention workflows.
 > 
-> Migrated from Streamlit to a high-performance **MERN-based production web application** (React, Vite, Tailwind CSS, Recharts, Node.js, Express, MongoDB) designed for full Vercel and cloud-native deployment with **zero dependency on Streamlit**.
+> **Core Architecture Positioning:**
+> - **Data Analytics & ML = Core Intelligence Engine:** Rigorous data cleaning, feature engineering, RFM modeling, 12-month forward CLV, churn propensity modeling, sentiment/NLP analysis, and decision rule recommendations.
+> - **MERN Stack = High-Performance Application Layer:** React 18, Vite, Tailwind CSS, Recharts, Node.js, Express, and MongoDB providing a responsive, production-ready interface with **zero dependency on Streamlit**.
+> - **Deployment = Vercel Serverless:** Cloud-native architecture ready for instant edge deployment.
+
+```
+                DATA (Multi-Source Transaction & Review Ledgers)
+                                       │
+                    DATA PROCESSING (Cleaning & Validation)
+                                       │
+                            EDA (Exploratory Data Analysis)
+                                       │
+                   ┌───────────────────┼───────────────────┐
+                   ▼                   ▼                   ▼
+             RFM ANALYSIS        CLV MODELING       CHURN MODELING
+                   └───────────────────┬───────────────────┘
+                                       │
+                             CUSTOMER SEGMENTATION
+                                       │
+                             SENTIMENT / NLP CSAT
+                                       │
+                               BUSINESS INSIGHTS
+                                       │
+                            NEXT-BEST RECOMMENDATIONS
+                                       │
+                                 MERN BACKEND
+                                       │
+                                REACT FRONTEND
+                                       │
+                              VERCEL DEPLOYMENT
+```
 
 ---
 
